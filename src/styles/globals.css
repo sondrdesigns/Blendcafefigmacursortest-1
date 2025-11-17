@@ -1,0 +1,320 @@
+@custom-variant dark (&:is(.dark *));
+
+/* Import Beautiful Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-size: 16px;
+  --background: #faf8f5;
+  --foreground: #3e2723;
+  --card: #fff9f0;
+  --card-foreground: #3e2723;
+  --popover: #fff9f0;
+  --popover-foreground: #3e2723;
+  --primary: #6d4c41;
+  --primary-foreground: #fff9f0;
+  --secondary: #f5ebe0;
+  --secondary-foreground: #5d4037;
+  --muted: #f5ebe0;
+  --muted-foreground: #8d6e63;
+  --accent: #ffe4c4;
+  --accent-foreground: #5d4037;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(141, 110, 99, 0.2);
+  --input: transparent;
+  --input-background: #fff9f0;
+  --switch-background: #d7ccc8;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #bcaaa4;
+  --chart-1: #c9772e;
+  --chart-2: #8d6e63;
+  --chart-3: #a1887f;
+  --chart-4: #ff8c42;
+  --chart-5: #d4a574;
+  --radius: 1rem;
+  --sidebar: #fff9f0;
+  --sidebar-foreground: #3e2723;
+  --sidebar-primary: #6d4c41;
+  --sidebar-primary-foreground: #fff9f0;
+  --sidebar-accent: #f5ebe0;
+  --sidebar-accent-foreground: #5d4037;
+  --sidebar-border: rgba(141, 110, 99, 0.2);
+  --sidebar-ring: #bcaaa4;
+  
+  /* Typography */
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-alt: 'DM Sans', sans-serif;
+  
+  /* Blend Brand Colors - Warmer, cozier palette */
+  --brand-primary: #b8834a;
+  --brand-primary-dark: #8b6239;
+  --brand-primary-light: #d4a574;
+  --brand-accent: #d4915e;
+  --brand-dark: #4a3728;
+  --brand-success: #7fa16d;
+  --brand-warning: #e8a05d;
+  --brand-info: #7a9bb3;
+  
+  /* Status Colors - Softer tones */
+  --status-open: #7fa16d;
+  --status-closed: #c66b6b;
+  --status-busy: #e8a05d;
+  
+  /* Cozy Shadows - Softer, warmer */
+  --shadow-sm: 0 1px 3px 0 rgba(101, 67, 33, 0.1);
+  --shadow-md: 0 4px 8px -2px rgba(101, 67, 33, 0.12);
+  --shadow-lg: 0 10px 20px -5px rgba(101, 67, 33, 0.15);
+  --shadow-xl: 0 20px 30px -8px rgba(101, 67, 33, 0.18);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  
+  /* Display font for headings */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  
+  /* Body font for everything else */
+  h4, h5, h6, p, span, a, label, button, input, textarea {
+    font-family: var(--font-body);
+    letter-spacing: -0.01em;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      line-height: 1.3;
+      font-family: var(--font-display);
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      line-height: 1.4;
+      font-family: var(--font-display);
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      line-height: 1.4;
+      font-family: var(--font-display);
+      letter-spacing: -0.01em;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: 600;
+      line-height: 1.5;
+      font-family: var(--font-body);
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.6;
+      font-family: var(--font-body);
+      letter-spacing: -0.01em;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: 500;
+      line-height: 1.5;
+      font-family: var(--font-body);
+      letter-spacing: -0.01em;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: 500;
+      line-height: 1.5;
+      font-family: var(--font-body);
+      letter-spacing: -0.005em;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+      font-family: var(--font-body);
+      letter-spacing: -0.01em;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-primary-dark);
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Animation utilities */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
