@@ -4,13 +4,18 @@ import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations, mockCafes } from '../lib/mockData';
 import { Cafe } from '../lib/types';
+import { BackButton } from './BackButton';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { Slider } from './ui/slider';
 
-export function MapPage() {
+interface MapPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export function MapPage({ onNavigate }: MapPageProps) {
   const { language, setSelectedCafe } = useApp();
   const t = translations[language];
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,6 +30,7 @@ export function MapPage() {
   const handleViewDetails = () => {
     if (selectedMapCafe) {
       setSelectedCafe(selectedMapCafe);
+      onNavigate('details');
     }
   };
 
@@ -164,6 +170,7 @@ export function MapPage() {
           animate={{ y: 0, opacity: 1 }}
           className="bg-white rounded-lg shadow-lg p-4 space-y-3"
         >
+          <BackButton onNavigate={onNavigate} />
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -300,7 +307,7 @@ export function MapPage() {
       )}
 
       {/* Map/Satellite Toggle */}
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <motion.div
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}

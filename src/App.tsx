@@ -11,6 +11,7 @@ import { CollectionsPage } from './components/CollectionsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { AuthPage } from './components/AuthPage';
 import { BusinessDashboard } from './components/BusinessDashboard';
+import { ProfilePage } from './components/ProfilePage';
 import { CafeDetailModal } from './components/CafeDetailModal';
 import { Toaster } from './components/ui/sonner';
 import { Button } from './components/ui/button';
@@ -18,11 +19,26 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './comp
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
-  const { isAuthenticated, selectedCafe, setSelectedCafe, user } = useApp();
+  const [profileUserId, setProfileUserId] = useState<string | undefined>(undefined);
+  const { isAuthenticated, selectedCafe, setSelectedCafe, user, addToHistory, goBack } = useApp();
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: string, userId?: string) => {
     setCurrentPage(page);
+    addToHistory(page);
+    if (page === 'profile' && userId) {
+      setProfileUserId(userId);
+    } else if (page === 'profile') {
+      setProfileUserId(undefined); // Own profile
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGoBack = () => {
+    const previousPage = goBack();
+    if (previousPage) {
+      setCurrentPage(previousPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   if (!isAuthenticated) {
@@ -36,12 +52,12 @@ function AppContent() {
       <main>
         {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
         {currentPage === 'explore' && <ExplorePage onNavigate={handleNavigate} />}
-        {currentPage === 'map' && <MapPage />}
-        {currentPage === 'social' && <SocialPage />}
-        {currentPage === 'favorites' && <CollectionsPage type="favorites" />}
-        {currentPage === 'wantToTry' && <CollectionsPage type="wantToTry" />}
-        {currentPage === 'settings' && <SettingsPage />}
+        {currentPage === 'map' && <MapPage onNavigate={handleNavigate} />}
+        {currentPage === 'social' && <SocialPage onNavigate={handleNavigate} />}
+        {currentPage === 'collections' && <CollectionsPage type="combined" onNavigate={handleNavigate} />}
+        {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
         {currentPage === 'business' && user.accountType === 'business' && <BusinessDashboard />}
+        {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} userId={profileUserId} />}
       </main>
 
       {/* Business Dashboard FAB */}

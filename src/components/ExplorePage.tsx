@@ -7,6 +7,7 @@ import { Cafe } from '../lib/types';
 import { CafeCard } from './CafeCard';
 import { SkeletonCard } from './SkeletonCard';
 import { AchievementsCard } from './AchievementsCard';
+import { BackButton } from './BackButton';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -33,6 +34,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [quickFilter, setQuickFilter] = useState<string>('all');
   const [cafes, setCafes] = useState<Cafe[]>([]);
+  const [displayCount, setDisplayCount] = useState(6); // Number of cafes to display
 
   useEffect(() => {
     // Simulate loading
@@ -41,6 +43,11 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
       setLoading(false);
     }, 1000);
   }, []);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setDisplayCount(6);
+  }, [searchQuery, selectedCategories, quickFilter]);
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -89,6 +96,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
       {/* Header Section */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-8">
+          <BackButton onNavigate={onNavigate} />
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -144,7 +152,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
                   }
                   onClick={() => toggleCategory(category)}
                 >
-                  {category}
+                  {t[category.toLowerCase() as keyof typeof t] || category}
                 </Badge>
               ))}
             </div>
@@ -213,7 +221,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
             transition={{ delay: 0.2 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {sortedCafes.map((cafe, index) => (
+            {sortedCafes.slice(0, displayCount).map((cafe, index) => (
               <CafeCard
                 key={cafe.id}
                 cafe={cafe}
@@ -233,6 +241,35 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
             <p className="text-muted-foreground text-lg">
               No cafés found matching your criteria. Try adjusting your filters.
             </p>
+          </motion.div>
+        )}
+
+        {/* Load More Button */}
+        {!loading && sortedCafes.length > displayCount && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-center mt-8"
+          >
+            <Button
+              onClick={() => setDisplayCount(prev => prev + 6)}
+              size="lg"
+              className="gap-2"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              Load More Cafés
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Showing count */}
+        {!loading && sortedCafes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center mt-6 text-sm text-muted-foreground"
+          >
+            Showing {Math.min(displayCount, sortedCafes.length)} of {sortedCafes.length} cafés
           </motion.div>
         )}
       </div>

@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Cafe, Review } from '../lib/types';
 import { useApp } from '../lib/AppContext';
 import { translations, mockReviews } from '../lib/mockData';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -60,15 +60,21 @@ export function CafeDetailModal({ cafe, onClose }: CafeDetailModalProps) {
 
   return (
     <Dialog open={!!cafe} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden [&>button]:hidden flex flex-col">
+        {/* Accessibility elements */}
+        <DialogTitle className="sr-only">{cafe.name}</DialogTitle>
+        <DialogDescription className="sr-only">
+          {cafe.description}
+        </DialogDescription>
+        
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="flex flex-col h-full"
+          className="flex flex-col h-full overflow-hidden"
         >
           {/* Photo Gallery */}
-          <div className="relative h-64 md:h-80 overflow-hidden bg-black">
+          <div className="relative h-64 md:h-80 overflow-hidden bg-black flex-shrink-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPhotoIndex}
@@ -123,8 +129,8 @@ export function CafeDetailModal({ cafe, onClose }: CafeDetailModalProps) {
             </Button>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-6 space-y-6">
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6 pb-8">
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -146,7 +152,7 @@ export function CafeDetailModal({ cafe, onClose }: CafeDetailModalProps) {
                   <div className="flex items-center gap-2 flex-wrap">
                     {cafe.categories.map(category => (
                       <Badge key={category} variant="secondary">
-                        {category}
+                        {t[category.toLowerCase() as keyof typeof t] || category}
                       </Badge>
                     ))}
                   </div>
@@ -164,11 +170,14 @@ export function CafeDetailModal({ cafe, onClose }: CafeDetailModalProps) {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full grid grid-cols-4">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="hours">Hours</TabsTrigger>
-                  <TabsTrigger value="popular">Popular Times</TabsTrigger>
-                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                <TabsList className="w-full grid grid-cols-4 h-auto">
+                  <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-4 py-2">Overview</TabsTrigger>
+                  <TabsTrigger value="hours" className="text-xs sm:text-sm px-2 sm:px-4 py-2">Hours</TabsTrigger>
+                  <TabsTrigger value="popular" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+                    <span className="hidden sm:inline">Popular Times</span>
+                    <span className="sm:hidden">Popular</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="reviews" className="text-xs sm:text-sm px-2 sm:px-4 py-2">Reviews</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4 mt-4">

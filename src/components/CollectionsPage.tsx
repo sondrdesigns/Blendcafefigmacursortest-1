@@ -3,17 +3,21 @@ import { Heart, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations, mockCafes } from '../lib/mockData';
+import { BackButton } from './BackButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { CafeCard } from './CafeCard';
 
 interface CollectionsPageProps {
-  type: 'favorites' | 'wantToTry';
+  type: 'favorites' | 'wantToTry' | 'combined';
+  onNavigate: (page: string) => void;
 }
 
-export function CollectionsPage({ type }: CollectionsPageProps) {
+export function CollectionsPage({ type, onNavigate }: CollectionsPageProps) {
   const { language, favorites, wantToTry, setSelectedCafe } = useApp();
   const t = translations[language];
-  const [activeTab, setActiveTab] = useState(type);
+  const [activeTab, setActiveTab] = useState<'favorites' | 'wantToTry'>(
+    type === 'combined' ? 'favorites' : type
+  );
 
   const favoriteCafes = mockCafes.filter(cafe => favorites.includes(cafe.id));
   const wantToTryCafes = mockCafes.filter(cafe => wantToTry.includes(cafe.id));
@@ -25,6 +29,7 @@ export function CollectionsPage({ type }: CollectionsPageProps) {
   return (
     <div className="min-h-[calc(100vh-73px)] bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <BackButton onNavigate={onNavigate} />
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Language, User, Cafe } from './types';
-import { currentUser, mockCafes } from './mockData';
+import { Language, User, Cafe, Friend } from './types';
+import { currentUser, mockCafes, mockFriends } from './mockData';
 
 interface AppContextType {
   language: Language;
@@ -18,6 +18,12 @@ interface AppContextType {
   selectedCafe: Cafe | null;
   setSelectedCafe: (cafe: Cafe | null) => void;
   friendRequestCount: number;
+  navigationHistory: string[];
+  addToHistory: (page: string) => void;
+  goBack: () => string | null;
+  friends: Friend[];
+  acceptFriendRequest: (friendId: string) => void;
+  declineFriendRequest: (friendId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -29,7 +35,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [wantToTry, setWantToTry] = useState<string[]>(['3', '5']);
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
+  const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
   const friendRequestCount = 2;
+  const [friends, setFriends] = useState<Friend[]>(mockFriends);
 
   const addFavorite = (cafeId: string) => {
     if (!favorites.includes(cafeId)) {
@@ -51,6 +59,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWantToTry(wantToTry.filter(id => id !== cafeId));
   };
 
+  const addToHistory = (page: string) => {
+    setNavigationHistory(prev => [...prev, page]);
+  };
+
+  const goBack = () => {
+    if (navigationHistory.length > 1) {
+      const newHistory = [...navigationHistory];
+      newHistory.pop(); // Remove current page
+      const previousPage = newHistory[newHistory.length - 1];
+      setNavigationHistory(newHistory);
+      return previousPage;
+    }
+    return null;
+  };
+
+  const acceptFriendRequest = (friendId: string) => {
+    setFriends(prevFriends => prevFriends.map(friend => 
+      friend.id === friendId ? { ...friend, status: 'accepted' } : friend
+    ));
+  };
+
+  const declineFriendRequest = (friendId: string) => {
+    setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -69,6 +102,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedCafe,
         setSelectedCafe,
         friendRequestCount,
+        navigationHistory,
+        addToHistory,
+        goBack,
+        friends,
+        acceptFriendRequest,
+        declineFriendRequest,
       }}
     >
       {children}

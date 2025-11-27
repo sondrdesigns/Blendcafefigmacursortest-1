@@ -4,7 +4,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --font-size: 16px;
+  --font-size: 18px;
   --background: #faf8f5;
   --foreground: #3e2723;
   --card: #fff9f0;
@@ -155,20 +155,14 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-body);
+    font-family: var(--font-display);
     font-weight: 400;
     letter-spacing: -0.01em;
   }
   
-  /* Display font for headings */
-  h1, h2, h3 {
+  /* Display font for everything now */
+  h1, h2, h3, h4, h5, h6, p, span, a, label, button, input, textarea {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
-  }
-  
-  /* Body font for everything else */
-  h4, h5, h6, p, span, a, label, button, input, textarea {
-    font-family: var(--font-body);
     letter-spacing: -0.01em;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Coffee, Home, Compass, MapPin, Users, Heart, Star, Settings, LogOut, Menu, X, Globe } from 'lucide-react';
+import { Coffee, Home, Compass, MapPin, Users, Heart, Star, Settings, LogOut, Menu, X, Globe, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
@@ -28,8 +28,8 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
     { id: 'explore', label: t.explore, icon: Compass },
     { id: 'map', label: t.map, icon: MapPin },
     { id: 'social', label: t.social, icon: Users, badge: friendRequestCount },
-    { id: 'favorites', label: t.favorites, icon: Heart },
-    { id: 'wantToTry', label: t.wantToTry, icon: Star },
+    { id: 'collections', label: 'Collections', icon: Heart },
+    { id: 'profile', label: 'Profile', icon: User },
     { id: 'settings', label: t.settings, icon: Settings },
   ];
 

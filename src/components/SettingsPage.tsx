@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
 import { Language, AccountType } from '../lib/types';
+import { BackButton } from './BackButton';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -14,7 +15,11 @@ import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { toast } from 'sonner@2.0.3';
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  onNavigate: (page: string) => void;
+}
+
+export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const { language, setLanguage, user, setUser } = useApp();
   const t = translations[language];
   
@@ -45,6 +50,7 @@ export function SettingsPage() {
   return (
     <div className="min-h-[calc(100vh-73px)] bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackButton onNavigate={onNavigate} />
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -57,22 +63,22 @@ export function SettingsPage() {
         </motion.div>
 
         <Tabs defaultValue="account" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="account" className="gap-2">
+          <TabsList className="w-full grid grid-cols-4 gap-1">
+            <TabsTrigger value="account" className="gap-1 px-2">
               <User className="w-4 h-4" />
-              Account
+              <span className="hidden md:inline">Account</span>
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="gap-2">
+            <TabsTrigger value="preferences" className="gap-1 px-2">
               <Globe className="w-4 h-4" />
-              Preferences
+              <span className="hidden md:inline">Preferences</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
+            <TabsTrigger value="notifications" className="gap-1 px-2">
               <Bell className="w-4 h-4" />
-              Notifications
+              <span className="hidden md:inline">Notifications</span>
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="gap-2">
+            <TabsTrigger value="privacy" className="gap-1 px-2">
               <Lock className="w-4 h-4" />
-              Privacy
+              <span className="hidden md:inline">Privacy</span>
             </TabsTrigger>
           </TabsList>
 

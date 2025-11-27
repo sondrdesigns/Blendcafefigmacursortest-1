@@ -156,12 +156,13 @@ export function HomePage({ onNavigate }: HomePageProps) {
             className="max-w-4xl"
           >
             <h1 
-              className="text-5xl md:text-7xl lg:text-8xl mb-6" 
+              className="text-6xl md:text-7xl lg:text-8xl mb-6" 
               style={{ 
                 color: '#4a3728',
                 fontWeight: 700,
                 letterSpacing: '-0.03em',
-                lineHeight: 1.1
+                lineHeight: 1.1,
+                fontFamily: 'var(--font-display)'
               }}
             >
               {t.heroTitle}{' '}
@@ -172,7 +173,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                  fontStyle: 'italic'
+                  fontStyle: 'italic',
+                  fontFamily: 'var(--font-display)'
                 }}
               >
                 {t.heroTitleAccent}
@@ -259,7 +261,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                     }
               }
             >
-              <span className="block">{category}</span>
+              <span className="block">{t[category.toLowerCase() as keyof typeof t] || category}</span>
             </motion.button>
           ))}
         </div>
