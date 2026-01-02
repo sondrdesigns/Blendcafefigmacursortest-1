@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OpenAI Connection</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #D97706;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #B45309;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #D1FAE5;
+            border: 1px solid #10B981;
+            color: #065F46;
+        }
+        .error {
+            background: #FEE2E2;
+            border: 1px solid #EF4444;
+            color: #991B1B;
+        }
+        .loading {
+            background: #FEF3C7;
+            border: 1px solid #F59E0B;
+            color: #92400E;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 OpenAI Connection Test</h1>
+        <p>This will test if your OpenAI API key is properly configured and working.</p>
+        
+        <button onclick="testConnection()">Test OpenAI Connection</button>
+        <button onclick="checkEnvVars()">Check Environment Variables</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script type="module">
+        window.testConnection = async function() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '🔄 Testing OpenAI connection...\n\nThis may take a few seconds...';
+
+            try {
+                // Dynamic import to ensure we have the API key
+                const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+                
+                if (!apiKey || apiKey === 'your_openai_api_key_here') {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ ERROR: OpenAI API key not configured!\n\n' +
+                        'Please check your .env file:\n' +
+                        '1. Make sure VITE_OPENAI_API_KEY is set\n' +
+                        '2. Restart your dev server after changing .env\n' +
+                        '3. Make sure .env is in the project root';
+                    return;
+                }
+
+                resultDiv.textContent += '\n\n✅ API key found in environment\n';
+                resultDiv.textContent += `📝 Key starts with: ${apiKey.substring(0, 20)}...\n\n`;
+                resultDiv.textContent += '🔄 Calling OpenAI API...';
+
+                // Import OpenAI
+                const { default: OpenAI } = await import('openai');
+                
+                const client = new OpenAI({
+                    apiKey: apiKey,
+                    dangerouslyAllowBrowser: true
+                });
+
+                // Make a simple test call
+                const response = await client.chat.completions.create({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: 'Respond with exactly: "OpenAI connection successful!"'
+                        }
+                    ],
+                    max_tokens: 20
+                });
+
+                const message = response.choices[0]?.message?.content;
+
+                resultDiv.className = 'result success';
+                resultDiv.textContent = '✅ SUCCESS! OpenAI is working!\n\n' +
+                    `Response: ${message}\n\n` +
+                    `Model: ${response.model}\n` +
+                    `Tokens used: ${response.usage?.total_tokens || 'unknown'}\n\n` +
+                    '🎉 Your AI features should be working!\n\n' +
+                    'If you still don\'t see AI calls in the app:\n' +
+                    '1. Make sure you restarted the dev server\n' +
+                    '2. Clear your browser cache\n' +
+                    '3. Check the browser console for errors';
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ ERROR: OpenAI connection failed!\n\n' +
+                    `Error: ${error.message}\n\n`;
+                
+                if (error.message.includes('401') || error.message.includes('authentication')) {
+                    resultDiv.textContent += '🔑 This looks like an API key issue:\n' +
+                        '1. Check that your API key is correct\n' +
+                        '2. Make sure the key hasn\'t expired\n' +
+                        '3. Verify billing is set up on OpenAI account\n' +
+                        '4. Try generating a new key at: https://platform.openai.com/api-keys';
+                } else if (error.message.includes('429')) {
+                    resultDiv.textContent += '⚠️ Rate limit exceeded:\n' +
+                        '1. You may have hit your API quota\n' +
+                        '2. Wait a few minutes and try again\n' +
+                        '3. Check your OpenAI usage at: https://platform.openai.com/usage';
+                } else {
+                    resultDiv.textContent += '💡 Possible issues:\n' +
+                        '1. Network connectivity problem\n' +
+                        '2. OpenAI service might be down\n' +
+                        '3. CORS issue (check browser console)\n' +
+                        '4. API key format incorrect';
+                }
+
+                console.error('Full error:', error);
+            }
+        };
+
+        window.checkEnvVars = function() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result';
+            
+            const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+            const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+            const firebaseKey = import.meta.env.VITE_FIREBASE_API_KEY;
+            
+            let text = '🔍 Environment Variables Check:\n\n';
+            
+            text += '1. VITE_OPENAI_API_KEY:\n';
+            if (openaiKey && openaiKey !== 'your_openai_api_key_here') {
+                text += `   ✅ Configured (${openaiKey.substring(0, 20)}...)\n\n`;
+            } else {
+                text += '   ❌ NOT CONFIGURED!\n\n';
+            }
+            
+            text += '2. VITE_GOOGLE_MAPS_API_KEY:\n';
+            if (googleKey && googleKey !== 'your_google_maps_api_key_here') {
+                text += `   ✅ Configured (${googleKey.substring(0, 20)}...)\n\n`;
+            } else {
+                text += '   ❌ NOT CONFIGURED!\n\n';
+            }
+            
+            text += '3. VITE_FIREBASE_API_KEY:\n';
+            if (firebaseKey) {
+                text += `   ✅ Configured (${firebaseKey.substring(0, 20)}...)\n\n`;
+            } else {
+                text += '   ❌ NOT CONFIGURED!\n\n';
+            }
+            
+            text += '\n💡 If any are missing:\n';
+            text += '1. Check your .env file in project root\n';
+            text += '2. Make sure variables start with VITE_\n';
+            text += '3. RESTART your dev server after changes';
+            
+            resultDiv.textContent = text;
+        };
+    </script>
+</body>
+</html>
+
+

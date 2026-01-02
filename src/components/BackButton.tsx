@@ -2,13 +2,15 @@ import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { useApp } from '../lib/AppContext';
+import { translations } from '../lib/mockData';
 
 interface BackButtonProps {
   onNavigate: (page: string) => void;
 }
 
 export function BackButton({ onNavigate }: BackButtonProps) {
-  const { goBack } = useApp();
+  const { goBack, language } = useApp();
+  const t = translations[language];
 
   const handleBack = () => {
     const previousPage = goBack();
@@ -25,7 +27,7 @@ export function BackButton({ onNavigate }: BackButtonProps) {
       className="gap-2 mb-4 hover:bg-secondary"
     >
       <ArrowLeft className="w-4 h-4" />
-      <span>Back</span>
+      <span>{t.back}</span>
     </Button>
   );
 }

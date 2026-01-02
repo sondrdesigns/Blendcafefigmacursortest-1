@@ -35,9 +35,9 @@ export function CollectionsPage({ type, onNavigate }: CollectionsPageProps) {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <h1 className="mb-2">My Collections</h1>
+          <h1 className="mb-2">{t.myCollections}</h1>
           <p className="text-muted-foreground">
-            Your saved cafés and places you want to try
+            {t.myCollectionsDescription}
           </p>
         </motion.div>
 

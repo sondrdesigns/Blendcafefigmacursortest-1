@@ -31,9 +31,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
   return (
     <div className="min-h-[calc(100vh-73px)]">
       {/* Hero Section */}
-      <div className="relative h-[500px] md:h-[600px] overflow-hidden">
+      <div className="relative h-[550px] md:h-[650px] pt-8 pb-12">
         {/* Warm Cozy Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50/30">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50/30 overflow-hidden">
           {/* Paper texture overlay */}
           <div className="absolute inset-0 opacity-30" style={{
             backgroundImage: `repeating-linear-gradient(
@@ -45,15 +45,15 @@ export function HomePage({ onNavigate }: HomePageProps) {
             )`
           }} />
           
-          {/* Soft Animated Blobs */}
+          {/* Soft Animated Blobs - Faster animations */}
           <motion.div
             animate={{
-              x: [0, 80, 0],
-              y: [0, -80, 0],
-              scale: [1, 1.15, 1],
+              x: [0, 120, 0],
+              y: [0, -120, 0],
+              scale: [1, 1.2, 1],
             }}
             transition={{
-              duration: 25,
+              duration: 8,
               repeat: Infinity,
               ease: "easeInOut"
             }}
@@ -62,12 +62,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
           />
           <motion.div
             animate={{
-              x: [0, -80, 0],
-              y: [0, 80, 0],
-              scale: [1, 1.25, 1],
+              x: [0, -120, 0],
+              y: [0, 120, 0],
+              scale: [1, 1.3, 1],
             }}
             transition={{
-              duration: 30,
+              duration: 10,
               repeat: Infinity,
               ease: "easeInOut"
             }}
@@ -75,21 +75,21 @@ export function HomePage({ onNavigate }: HomePageProps) {
             style={{ background: 'radial-gradient(circle, #b8834a, transparent)' }}
           />
           
-          {/* Floating Coffee Steam */}
+          {/* Floating Coffee Steam - Faster animations */}
           {[...Array(12)].map((_, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0 }}
               animate={{
-                opacity: [0.05, 0.15, 0.05],
-                y: [0, -50, -100],
-                x: [0, Math.sin(i) * 20, 0],
-                scale: [0.8, 1.2, 0.6],
+                opacity: [0.05, 0.2, 0.05],
+                y: [0, -60, -120],
+                x: [0, Math.sin(i) * 30, 0],
+                scale: [0.8, 1.3, 0.5],
               }}
               transition={{
-                duration: 6 + i * 0.8,
+                duration: 3 + i * 0.3,
                 repeat: Infinity,
-                delay: i * 0.6,
+                delay: i * 0.2,
                 ease: "easeInOut"
               }}
               className="absolute"
@@ -105,17 +105,17 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </motion.div>
           ))}
           
-          {/* Soft Decorative Elements */}
+          {/* Soft Decorative Elements - Faster rotations */}
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
             className="absolute top-20 right-24 opacity-10"
           >
             <div className="w-40 h-40 rounded-full border-4" style={{ borderColor: '#b8834a' }} />
           </motion.div>
           <motion.div
             animate={{ rotate: -360 }}
-            transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
             className="absolute bottom-32 left-20 opacity-10"
           >
             <div className="w-32 h-32 rounded-full border-4" style={{ borderColor: '#d4915e' }} />
@@ -148,40 +148,48 @@ export function HomePage({ onNavigate }: HomePageProps) {
           ))}
         </div>
 
-        <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
+        <div className="relative z-10 h-full flex flex-col items-center justify-center text-center" style={{ overflow: 'visible', width: '100%', padding: '0' }}>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="max-w-4xl"
+            style={{ overflow: 'visible', width: '100%', maxWidth: 'none' }}
           >
-            <h1 
-              className="text-6xl md:text-7xl lg:text-8xl mb-6" 
-              style={{ 
-                color: '#4a3728',
-                fontWeight: 700,
-                letterSpacing: '-0.03em',
-                lineHeight: 1.1,
-                fontFamily: 'var(--font-display)'
-              }}
-            >
-              {t.heroTitle}{' '}
-              <span 
-                className="block md:inline" 
+            <div style={{ overflow: 'visible', padding: '60px 0', margin: '0 auto', width: 'fit-content' }}>
+              <h1 
+                className="mb-6" 
                 style={{ 
-                  background: 'linear-gradient(135deg, #b8834a 0%, #d4915e 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  fontStyle: 'italic',
-                  fontFamily: 'var(--font-display)'
+                  color: '#4a3728',
+                  fontWeight: 700,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.6,
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 'clamp(3.5rem, 8vw, 5.85rem)',
+                  overflow: 'visible',
+                  whiteSpace: 'nowrap',
+                  padding: '0',
+                  margin: '0'
                 }}
               >
-                {t.heroTitleAccent}
-              </span>
-            </h1>
+                {t.heroTitle}{' '}
+                <span 
+                  style={{ 
+                    background: 'linear-gradient(135deg, #b8834a 0%, #d4915e 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontStyle: 'italic',
+                    fontFamily: 'var(--font-display)',
+                    paddingRight: '20px'
+                  }}
+                >
+                  {t.heroTitleAccent}
+                </span>
+                <span style={{ opacity: 0.000001 }}>s</span>
+              </h1>
+            </div>
             <p 
-              className="text-lg md:text-xl lg:text-2xl mb-8 max-w-2xl mx-auto" 
+              className="text-lg md:text-xl lg:text-2xl mb-8 max-w-2xl mx-auto px-4" 
               style={{ 
                 color: '#6d4c41',
                 fontWeight: 400,
