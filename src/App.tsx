@@ -1,23 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { BarChart3 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { AppProvider, useApp } from './lib/AppContext';
 import { Navigation } from './components/Navigation';
-import { HomePage } from './components/HomePage';
-import { ExplorePage } from './components/ExplorePage';
-import { MapPageReal } from './components/MapPageReal';
-import { SocialPage } from './components/SocialPage';
-import { CollectionsPage } from './components/CollectionsPage';
-import { SettingsPage } from './components/SettingsPage';
-import { AuthPage } from './components/AuthPage';
-import { BusinessDashboard } from './components/BusinessDashboard';
-import { ProfilePage } from './components/ProfilePage';
-import { ProfileSetupPage } from './components/ProfileSetupPage';
-import { MessagesPage } from './components/MessagesPage';
-import { CafeDetailModal } from './components/CafeDetailModal';
 import { Toaster } from './components/ui/sonner';
 import { Button } from './components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip';
+
+// Lazy load pages for better performance
+const HomePage = lazy(() => import('./components/HomePage').then(m => ({ default: m.HomePage })));
+const ExplorePage = lazy(() => import('./components/ExplorePage').then(m => ({ default: m.ExplorePage })));
+const MapPageReal = lazy(() => import('./components/MapPageReal').then(m => ({ default: m.MapPageReal })));
+const SocialPage = lazy(() => import('./components/SocialPage').then(m => ({ default: m.SocialPage })));
+const CollectionsPage = lazy(() => import('./components/CollectionsPage').then(m => ({ default: m.CollectionsPage })));
+const SettingsPage = lazy(() => import('./components/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const AuthPage = lazy(() => import('./components/AuthPage').then(m => ({ default: m.AuthPage })));
+const BusinessDashboard = lazy(() => import('./components/BusinessDashboard').then(m => ({ default: m.BusinessDashboard })));
+const ProfilePage = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const ProfileSetupPage = lazy(() => import('./components/ProfileSetupPage').then(m => ({ default: m.ProfileSetupPage })));
+const MessagesPage = lazy(() => import('./components/MessagesPage').then(m => ({ default: m.MessagesPage })));
+const CafeDetailModal = lazy(() => import('./components/CafeDetailModal').then(m => ({ default: m.CafeDetailModal })));
+
+// Loading spinner component
+function PageLoader() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: 'var(--brand-primary)' }}></div>
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -67,15 +81,21 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <AuthPage onNavigate={handleNavigate} onSignupComplete={() => setShowProfileSetup(true)} />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <AuthPage onNavigate={handleNavigate} onSignupComplete={() => setShowProfileSetup(true)} />
+      </Suspense>
+    );
   }
 
   if (showProfileSetup) {
     return (
-      <ProfileSetupPage
-        onNavigate={handleNavigate}
-        onComplete={() => setShowProfileSetup(false)}
-      />
+      <Suspense fallback={<PageLoader />}>
+        <ProfileSetupPage
+          onNavigate={handleNavigate}
+          onComplete={() => setShowProfileSetup(false)}
+        />
+      </Suspense>
     );
   }
 
@@ -84,15 +104,17 @@ function AppContent() {
       <Navigation currentPage={currentPage} onNavigate={handleNavigate} />
       
       <main>
-        {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
-        {currentPage === 'explore' && <ExplorePage onNavigate={handleNavigate} />}
-        {currentPage === 'map' && <MapPageReal onNavigate={handleNavigate} />}
-        {currentPage === 'social' && <SocialPage onNavigate={handleNavigate} />}
-        {currentPage === 'collections' && <CollectionsPage type="combined" onNavigate={handleNavigate} />}
-        {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
-        {currentPage === 'business' && user?.accountType === 'business' && <BusinessDashboard />}
-        {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} onOpenMessages={handleOpenMessages} userId={profileUserId} />}
-        {currentPage === 'messages' && <MessagesPage onNavigate={handleNavigate} initialConversationId={messagesUserId} />}
+        <Suspense fallback={<PageLoader />}>
+          {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
+          {currentPage === 'explore' && <ExplorePage onNavigate={handleNavigate} />}
+          {currentPage === 'map' && <MapPageReal onNavigate={handleNavigate} />}
+          {currentPage === 'social' && <SocialPage onNavigate={handleNavigate} />}
+          {currentPage === 'collections' && <CollectionsPage type="combined" onNavigate={handleNavigate} />}
+          {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
+          {currentPage === 'business' && user?.accountType === 'business' && <BusinessDashboard />}
+          {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} onOpenMessages={handleOpenMessages} userId={profileUserId} />}
+          {currentPage === 'messages' && <MessagesPage onNavigate={handleNavigate} initialConversationId={messagesUserId} />}
+        </Suspense>
       </main>
 
       {/* Business Dashboard FAB */}
@@ -123,7 +145,9 @@ function AppContent() {
         </TooltipProvider>
       )}
 
-      <CafeDetailModal cafe={selectedCafe} onClose={() => setSelectedCafe(null)} />
+      <Suspense fallback={null}>
+        <CafeDetailModal cafe={selectedCafe} onClose={() => setSelectedCafe(null)} />
+      </Suspense>
       <Toaster />
     </div>
   );
