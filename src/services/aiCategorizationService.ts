@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
-
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+import { OpenAIProxy } from './openaiProxy';
 
 // Available categories in the app
 const AVAILABLE_CATEGORIES = [
@@ -17,24 +15,7 @@ const AVAILABLE_CATEGORIES = [
 ];
 
 export class AiCategorizationService {
-  private static openai: OpenAI | null = null;
   private static cache: Map<string, string[]> = new Map();
-
-  /**
-   * Initialize OpenAI client
-   */
-  private static getClient(): OpenAI {
-    if (!this.openai) {
-      if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
-        throw new Error('OpenAI API key not configured');
-      }
-      this.openai = new OpenAI({
-        apiKey: OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true // For demo purposes
-      });
-    }
-    return this.openai;
-  }
 
   /**
    * Analyze reviews and determine appropriate categories using AI
@@ -55,13 +36,11 @@ export class AiCategorizationService {
 
       console.log(`🤖 AI analyzing ${cafeName}...`);
 
-      const client = this.getClient();
-
       // Prepare review summary
       const reviewText = reviews.slice(0, 5).join('\n\n'); // Use first 5 reviews
 
       // Create prompt for GPT
-      const prompt = `
+      const userPrompt = `
 You are a cafe categorization expert. Analyze the following cafe and determine which categories it's best suited for.
 
 Cafe Name: ${cafeName}
@@ -88,25 +67,19 @@ Based on the reviews and data, which categories (2-5 maximum) is this cafe BEST 
 Respond with ONLY a JSON array of category names, like: ["Coffee", "Studying", "WiFi"]
 `;
 
-      // Call OpenAI API
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini', // Faster and cheaper than GPT-4
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a cafe categorization expert. Respond only with a JSON array of categories.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3, // Lower = more consistent
-        max_tokens: 100
-      });
+      // Call OpenAI through secure proxy
+      const content = await OpenAIProxy.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are a cafe categorization expert. Respond only with a JSON array of categories.'
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ], { max_tokens: 100 });
 
       // Parse response
-      const content = response.choices[0]?.message?.content || '[]';
       const categories = JSON.parse(content.trim());
 
       // Validate categories
@@ -240,8 +213,6 @@ Respond with ONLY a JSON array of category names, like: ["Coffee", "Studying", "
       }
 
       console.log(`🤖 Generating AI summary for ${cafeName}...`);
-
-      const client = this.getClient();
       
       // Format hours for AI context
       const hoursText = hours && hours.length > 0
@@ -249,7 +220,7 @@ Respond with ONLY a JSON array of category names, like: ["Coffee", "Studying", "
         : '';
 
       // Create detailed prompt demanding specificity
-      const prompt = `
+      const userPrompt = `
 You are a café description expert. Read these ${reviews.length} REAL customer reviews and write a compelling, SPECIFIC summary.
 
 Café Name: ${cafeName}
@@ -272,31 +243,20 @@ CRITICAL RULES:
 - Write naturally as if YOU visited - don't say "reviews mention" or "customers say"
 - If hours are notable (early/late), weave it in naturally (e.g., "perfect for early risers with 6am opening")
 - Be descriptive and vivid!
-
-Example (DO THIS):
-"This industrial-chic café serves pour-over single-origins and house-made croissants in a sun-lit space with vintage wooden tables. Known for their silky flat whites and laptop-friendly environment with plenty of outlets. Perfect for freelancers seeking a productive morning spot."
-
-Example (DON'T DO THIS):
-"A great café with good coffee and nice atmosphere. Customers love the drinks and ambiance. Perfect for coffee lovers."
 `;
 
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional café reviewer who writes SPECIFIC, vivid, engaging descriptions using real details from reviews. Never be generic.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 200
-      });
+      const content = await OpenAIProxy.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are a professional café reviewer who writes SPECIFIC, vivid, engaging descriptions using real details from reviews. Never be generic.'
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ], { max_tokens: 200 });
 
-      const summary = response.choices[0]?.message?.content?.trim() || 'A wonderful café worth visiting.';
+      const summary = content.trim() || 'A wonderful café worth visiting.';
 
       console.log(`✅ Generated summary for ${cafeName}`);
 
@@ -335,10 +295,8 @@ Example (DON'T DO THIS):
 
       console.log(`🤖 Analyzing ${reviews.length} reviews by category for ${cafeName}...`);
 
-      const client = this.getClient();
-
       // Create detailed prompt demanding specific insights
-      const prompt = `
+      const userPrompt = `
 You are an expert at analyzing café reviews. Read these ${reviews.length} REAL customer reviews and extract SPECIFIC, DIVERSE insights for each relevant category.
 
 Café: ${cafeName}
@@ -357,18 +315,6 @@ INSTRUCTIONS:
 7. If a category has mixed reviews, note that in the summary
 8. Include 3-5 highlights per category (exact short quotes or specific details)
 
-Category Definitions:
-- Coffee: Quality, variety, brewing methods, specialty drinks
-- Studying: Quiet, WiFi, outlets, seating, lighting, atmosphere for focus
-- WiFi: Speed, reliability, password availability
-- Working: Remote work suitability, outlets, seating, hours, noise
-- Dates: Romantic atmosphere, ambiance, lighting, privacy
-- Vibes: Overall aesthetic, music, decor, Instagram-worthy, trendy
-- Quiet: Noise level, peaceful atmosphere
-- Groups: Spaciousness, group seating, accommodating large parties
-- Outdoor: Patio, sidewalk seating, garden, weather protection
-- Pastries: Baked goods, croissants, cakes, food quality
-
 Respond with ONLY a JSON array (no markdown):
 [
   {
@@ -382,23 +328,16 @@ Respond with ONLY a JSON array (no markdown):
 CRITICAL: Be SPECIFIC, not generic. Use real details from the reviews!
 `;
 
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a review analysis expert who extracts SPECIFIC, detailed insights from customer reviews. Never use generic phrases. Always pull exact details and quotes from the actual review text. Respond only with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.4, // Slightly higher for more creative extraction
-        max_tokens: 800 // Increased to allow for more detailed responses
-      });
-
-      const content = response.choices[0]?.message?.content || '[]';
+      const content = await OpenAIProxy.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are a review analysis expert who extracts SPECIFIC, detailed insights from customer reviews. Never use generic phrases. Always pull exact details and quotes from the actual review text. Respond only with valid JSON.'
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ], { max_tokens: 800 });
       
       // Remove markdown code blocks if AI includes them
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -446,4 +385,3 @@ if (typeof window !== 'undefined') {
     console.log('✅ Run this command to clear cache: window.clearAICache()');
   };
 }
-
