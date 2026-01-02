@@ -1,28 +1,54 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Activity, Check, X } from 'lucide-react';
+import { Users, UserPlus, Activity, Check, X, Search, MessageCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
-import { translations, mockActivities } from '../lib/mockData';
+import { translations } from '../lib/mockData';
 import { BackButton } from './BackButton';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent } from './ui/card';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Input } from './ui/input';
+import { Friend } from '../lib/types';
 
 interface SocialPageProps {
   onNavigate: (page: string, userId?: string) => void;
 }
 
 export function SocialPage({ onNavigate }: SocialPageProps) {
-  const { language, friends: allFriends, acceptFriendRequest, declineFriendRequest } = useApp();
+  const { language, friends: allFriends, acceptFriendRequest, declineFriendRequest, searchUsers, sendFriendRequest } = useApp();
   const t = translations[language];
   const [activeTab, setActiveTab] = useState('friends');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Friend[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
 
   const friends = allFriends.filter(f => f.status === 'friends' || f.status === 'accepted');
   const requests = allFriends.filter(f => f.status === 'request');
   const pending = allFriends.filter(f => f.status === 'pending');
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const results = await searchUsers(searchQuery);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+    setIsSearching(false);
+  };
+
+  const handleSendRequest = async (userId: string) => {
+    await sendFriendRequest(userId);
+    setSentRequests(prev => new Set(prev).add(userId));
+    setSearchResults(prev => prev.filter(u => u.id !== userId));
+  };
 
   return (
     <div className="min-h-[calc(100vh-73px)] bg-gray-50 overflow-x-hidden">
@@ -38,6 +64,57 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
             {t.connectWithFriends}
           </p>
         </motion.div>
+
+        {/* Search Bar */}
+        <Card className="mb-4 sm:mb-6">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users by username..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={handleSearch} disabled={isSearching}>
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+              </Button>
+            </div>
+            
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-muted-foreground">Search Results:</p>
+                {searchResults.map((result) => (
+                  <div key={result.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={result.avatar} />
+                      <AvatarFallback>{result.username[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{result.username}</p>
+                      <p className="text-xs text-muted-foreground">{result.reviewCount} reviews</p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleSendRequest(result.id)}
+                      disabled={sentRequests.has(result.id)}
+                    >
+                      {sentRequests.has(result.id) ? 'Sent' : 'Add Friend'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {searchQuery && searchResults.length === 0 && !isSearching && (
+              <p className="mt-3 text-sm text-muted-foreground text-center">No users found</p>
+            )}
+          </CardContent>
+        </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-auto">
@@ -62,7 +139,15 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
           {/* Friends Tab */}
           <TabsContent value="friends">
             <div className="grid gap-4">
-              {friends.map((friend, index) => (
+              {friends.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-2">No friends yet</p>
+                    <p className="text-sm text-muted-foreground">Use the search bar above to find and add friends!</p>
+                  </CardContent>
+                </Card>
+              ) : friends.map((friend, index) => (
                 <motion.div
                   key={friend.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -89,9 +174,14 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                             </div>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => onNavigate('profile', friend.id)} className="w-full sm:w-auto text-sm">
-                          View
-                        </Button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <Button variant="outline" size="sm" onClick={() => onNavigate('messages', friend.id)} className="flex-1 sm:flex-initial">
+                            <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => onNavigate('profile', friend.id)} className="flex-1 sm:flex-initial text-sm">
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -186,65 +276,16 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
 
           {/* Activity Feed Tab */}
           <TabsContent value="activity">
-            <div className="grid gap-4">
-              {mockActivities.map((activity, index) => (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card>
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex gap-3 sm:gap-4">
-                        <Avatar className="w-10 h-10 flex-shrink-0">
-                          <AvatarImage src={activity.userAvatar} />
-                          <AvatarFallback>{activity.username[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="mb-2 text-sm sm:text-base">
-                            <span className="font-medium">{activity.username}</span>
-                            {activity.type === 'review' && ' reviewed '}
-                            {activity.type === 'visit' && ' visited '}
-                            {activity.type === 'favorite' && ' favorited '}
-                            <span className="font-medium break-words">{activity.cafeName}</span>
-                          </div>
-                          {activity.rating && (
-                            <div className="flex items-center gap-1 mb-2">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <span
-                                  key={i}
-                                  className={`text-xs sm:text-sm ${
-                                    i < activity.rating! ? 'text-yellow-400' : 'text-gray-300'
-                                  }`}
-                                >
-                                  ★
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {activity.text && (
-                            <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-2">
-                              "{activity.text}"
-                            </p>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {activity.timestamp}
-                          </span>
-                        </div>
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0">
-                          <ImageWithFallback
-                            src={activity.cafeImage}
-                            alt={activity.cafeName}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Activity className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {friends.length === 0 
+                    ? "Add friends to see their activity here" 
+                    : "No recent activity from your friends"}
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

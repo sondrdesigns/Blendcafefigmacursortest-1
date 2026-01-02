@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language, User, Cafe, Friend } from './types';
-import { mockFriends } from './mockData';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { AuthService } from '../services/authService';
 import { CafeService } from '../services/cafeService';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 
 interface AppContextType {
   language: Language;
@@ -28,6 +28,8 @@ interface AppContextType {
   friends: Friend[];
   acceptFriendRequest: (friendId: string) => void;
   declineFriendRequest: (friendId: string) => void;
+  sendFriendRequest: (userId: string) => Promise<void>;
+  searchUsers: (query: string) => Promise<Friend[]>;
   loading: boolean;
 }
 
@@ -41,9 +43,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
-  const friendRequestCount = 2;
-  const [friends, setFriends] = useState<Friend[]>(mockFriends);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const friendRequestCount = friends.filter(f => f.status === 'request').length;
+
+  // Load friends from Firestore
+  const loadFriends = async (userId: string) => {
+    try {
+      const friendsRef = collection(db, 'friendships');
+      const q = query(friendsRef, where('users', 'array-contains', userId));
+      const snapshot = await getDocs(q);
+      
+      const loadedFriends: Friend[] = [];
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const friendUserId = data.users.find((id: string) => id !== userId);
+        if (friendUserId) {
+          const friendDoc = await getDoc(doc(db, 'users', friendUserId));
+          if (friendDoc.exists()) {
+            const friendData = friendDoc.data();
+            loadedFriends.push({
+              id: friendUserId,
+              username: friendData.username || 'User',
+              avatar: friendData.avatar || '/default-avatar.svg',
+              status: data.status === 'accepted' ? 'friends' : 
+                      data.requestedBy === userId ? 'pending' : 'request',
+              mutualFriends: 0,
+              reviewCount: friendData.reviewCount || 0,
+            });
+          }
+        }
+      }
+      setFriends(loadedFriends);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -61,6 +97,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const userWantToTry = await CafeService.getWantToTry(firebaseUser.uid);
             setFavorites(userFavorites);
             setWantToTry(userWantToTry);
+            
+            // Load friends from Firestore
+            await loadFriends(firebaseUser.uid);
           }
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -70,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsAuthenticated(false);
         setFavorites([]);
         setWantToTry([]);
+        setFriends([]);
       }
       setLoading(false);
     });
@@ -136,14 +176,104 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const acceptFriendRequest = (friendId: string) => {
-    setFriends(prevFriends => prevFriends.map(friend => 
-      friend.id === friendId ? { ...friend, status: 'accepted' } : friend
-    ));
+  // Search for users by username
+  const searchUsers = async (searchQuery: string): Promise<Friend[]> => {
+    if (!searchQuery.trim() || !user) return [];
+    
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      const results: Friend[] = [];
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const userId = docSnap.id;
+        
+        // Don't include self or existing friends
+        if (userId === user.id) return;
+        if (friends.some(f => f.id === userId)) return;
+        
+        // Match by username (case-insensitive)
+        if (data.username?.toLowerCase().includes(searchQuery.toLowerCase())) {
+          results.push({
+            id: userId,
+            username: data.username || 'User',
+            avatar: data.avatar || '/default-avatar.svg',
+            status: 'friends', // Will be shown as "Add Friend" in UI
+            mutualFriends: 0,
+            reviewCount: data.reviewCount || 0,
+          });
+        }
+      });
+      
+      return results.slice(0, 10); // Limit to 10 results
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return [];
+    }
   };
 
-  const declineFriendRequest = (friendId: string) => {
-    setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+  // Send friend request
+  const sendFriendRequest = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      const friendshipId = [user.id, friendId].sort().join('_');
+      await setDoc(doc(db, 'friendships', friendshipId), {
+        users: [user.id, friendId],
+        status: 'pending',
+        requestedBy: user.id,
+        createdAt: new Date(),
+      });
+      
+      // Add to local state as pending
+      const friendDoc = await getDoc(doc(db, 'users', friendId));
+      if (friendDoc.exists()) {
+        const friendData = friendDoc.data();
+        setFriends(prev => [...prev, {
+          id: friendId,
+          username: friendData.username || 'User',
+          avatar: friendData.avatar || '/default-avatar.svg',
+          status: 'pending',
+          mutualFriends: 0,
+          reviewCount: friendData.reviewCount || 0,
+        }]);
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+    }
+  };
+
+  const acceptFriendRequest = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      const friendshipId = [user.id, friendId].sort().join('_');
+      await setDoc(doc(db, 'friendships', friendshipId), {
+        users: [user.id, friendId],
+        status: 'accepted',
+        acceptedAt: new Date(),
+      }, { merge: true });
+      
+      setFriends(prevFriends => prevFriends.map(friend => 
+        friend.id === friendId ? { ...friend, status: 'friends' } : friend
+      ));
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+    }
+  };
+
+  const declineFriendRequest = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      const friendshipId = [user.id, friendId].sort().join('_');
+      await deleteDoc(doc(db, 'friendships', friendshipId));
+      
+      setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+    }
   };
 
   return (
@@ -170,6 +300,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         friends,
         acceptFriendRequest,
         declineFriendRequest,
+        sendFriendRequest,
+        searchUsers,
         loading,
       }}
     >
