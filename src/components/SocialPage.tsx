@@ -70,24 +70,24 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
           <CardContent className="p-3 sm:p-4">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  placeholder="Search users by username..."
+                  placeholder={t.searchUsersPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="pl-9"
+                  className="pl-10"
                 />
               </div>
               <Button onClick={handleSearch} disabled={isSearching}>
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : t.searchButton}
               </Button>
             </div>
             
             {/* Search Results */}
             {searchResults.length > 0 && (
               <div className="mt-4 space-y-2">
-                <p className="text-sm text-muted-foreground">Search Results:</p>
+                <p className="text-sm text-muted-foreground">{t.searchResults}:</p>
                 {searchResults.map((result) => (
                   <div key={result.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
                     <Avatar className="w-10 h-10">
@@ -103,7 +103,7 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                       onClick={() => handleSendRequest(result.id)}
                       disabled={sentRequests.has(result.id)}
                     >
-                      {sentRequests.has(result.id) ? 'Sent' : 'Add Friend'}
+                      {sentRequests.has(result.id) ? t.requestSent : t.addFriend}
                     </Button>
                   </div>
                 ))}
@@ -111,7 +111,7 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
             )}
             
             {searchQuery && searchResults.length === 0 && !isSearching && (
-              <p className="mt-3 text-sm text-muted-foreground text-center">No users found</p>
+              <p className="mt-3 text-sm text-muted-foreground text-center">{t.noUsersFound}</p>
             )}
           </CardContent>
         </Card>
@@ -143,8 +143,8 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-2">No friends yet</p>
-                    <p className="text-sm text-muted-foreground">Use the search bar above to find and add friends!</p>
+                    <p className="text-muted-foreground mb-2">{t.noFriendsYet}</p>
+                    <p className="text-sm text-muted-foreground">{t.useSearchBarToAddFriends}</p>
                   </CardContent>
                 </Card>
               ) : friends.map((friend, index) => (
@@ -281,8 +281,8 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                 <Activity className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                 <p className="text-muted-foreground">
                   {friends.length === 0 
-                    ? "Add friends to see their activity here" 
-                    : "No recent activity from your friends"}
+                    ? t.addFriendsToSeeActivity 
+                    : t.noRecentActivity}
                 </p>
               </CardContent>
             </Card>
