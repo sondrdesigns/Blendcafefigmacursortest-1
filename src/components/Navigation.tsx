@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Coffee, Home, Compass, MapPin, Users, Heart, Star, Settings, LogOut, Menu, X, Globe, User } from 'lucide-react';
+import { Coffee, Home, Compass, MapPin, Users, Heart, Star, Settings, LogOut, Menu, X, Globe, User, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
@@ -19,17 +19,31 @@ interface NavigationProps {
 }
 
 export function Navigation({ currentPage, onNavigate }: NavigationProps) {
-  const { language, setLanguage, friendRequestCount } = useApp();
+  const { language, setLanguage, friendRequestCount, setIsAuthenticated, setUser } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[language];
+
+  const handleLogout = async () => {
+    try {
+      const { AuthService } = await import('../services/authService');
+      await AuthService.signOut();
+      setUser(null);
+      setIsAuthenticated(false);
+      setMobileMenuOpen(false);
+      // Will automatically redirect to auth page
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const navItems = [
     { id: 'home', label: t.home, icon: Home },
     { id: 'explore', label: t.explore, icon: Compass },
     { id: 'map', label: t.map, icon: MapPin },
     { id: 'social', label: t.social, icon: Users, badge: friendRequestCount },
-    { id: 'collections', label: 'Collections', icon: Heart },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
+    { id: 'collections', label: t.collections, icon: Heart },
+    { id: 'profile', label: t.profile, icon: User },
     { id: 'settings', label: t.settings, icon: Settings },
   ];
 
@@ -123,7 +137,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
           </DropdownMenu>
 
           <button
-            onClick={() => onNavigate('login')}
+            onClick={handleLogout}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl transition-all flex-shrink-0 hover:bg-secondary"
             style={{ color: '#6d4c41' }}
           >
@@ -199,7 +213,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
           </DropdownMenu>
 
           <button
-            onClick={() => onNavigate('login')}
+            onClick={handleLogout}
             className="flex items-center justify-center p-2.5 rounded-2xl transition-all ml-1 hover:bg-secondary"
             style={{ color: '#6d4c41' }}
             title={t.logout}
@@ -291,9 +305,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
               </div>
 
               <button
-                onClick={() => {
-                  handleNavClick('login');
-                }}
+                onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
               >
                 <LogOut className="w-5 h-5" />

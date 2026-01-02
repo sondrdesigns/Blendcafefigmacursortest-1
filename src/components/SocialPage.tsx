@@ -35,7 +35,7 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
         >
           <h1 className="mb-2">{t.social}</h1>
           <p className="text-muted-foreground">
-            Connect with friends and see what cafés they're enjoying
+            {t.connectWithFriends}
           </p>
         </motion.div>
 
@@ -43,19 +43,19 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
           <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-auto">
             <TabsTrigger value="friends" className="flex-row items-center gap-1 px-1.5 sm:px-3 py-2.5">
               <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-xs sm:text-sm">Friends</span>
+              <span className="text-xs sm:text-sm">{t.friendsTab}</span>
               <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 min-w-[20px]">{friends.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="requests" className="flex-row items-center gap-1 px-1.5 sm:px-3 py-2.5">
               <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-xs sm:text-sm">Requests</span>
+              <span className="text-xs sm:text-sm">{t.requestsTab}</span>
               {requests.length > 0 && (
                 <Badge variant="destructive" className="text-xs px-1.5 py-0 h-5 min-w-[20px]">{requests.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex-row items-center gap-1 px-1.5 sm:px-3 py-2.5">
               <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-xs sm:text-sm">Activity</span>
+              <span className="text-xs sm:text-sm">{t.activityTab}</span>
             </TabsTrigger>
           </TabsList>
 

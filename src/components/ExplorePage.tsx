@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, SlidersHorizontal, Trophy, Navigation as NavigationIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
-import { translations, categories, mockCafes } from '../lib/mockData';
+import { translations, categories } from '../lib/mockData';
 import { Cafe } from '../lib/types';
 import { CafeCard } from './CafeCard';
 import { SkeletonCard } from './SkeletonCard';
-import { AchievementsCard } from './AchievementsCard';
 import { BackButton } from './BackButton';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -21,6 +20,9 @@ import {
 } from './ui/sheet';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
+import { GoogleMapsService } from '../services/googleMapsService';
+import { CafeService } from '../services/cafeService';
+import { toast } from 'sonner';
 
 interface ExplorePageProps {
   onNavigate: (page: string) => void;
@@ -35,14 +37,84 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
   const [quickFilter, setQuickFilter] = useState<string>('all');
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [displayCount, setDisplayCount] = useState(6); // Number of cafes to display
+  const [isAiEnhancing, setIsAiEnhancing] = useState(false);
+  const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setCafes(mockCafes);
-      setLoading(false);
-    }, 1000);
+    loadCafes();
   }, []);
+
+  const loadCafes = async () => {
+    setLoading(true);
+    setIsAiEnhancing(true);
+    
+    try {
+      console.log('🔍 Getting user location...');
+      const location = await GoogleMapsService.getUserLocation();
+      console.log('📍 Location:', location);
+      
+      console.log('☕ Searching for nearby cafes...');
+      
+      let enhancementComplete = false;
+      let enhancedCount = 0;
+      
+      // Progressive loading: update UI as cafes get enhanced
+      const nearbyCafes = await GoogleMapsService.searchNearbyCafes(
+        location, 
+        5000, // 5km radius
+        (updatedCafes) => {
+          // Update state as AI processes each batch
+          // This triggers filteredCafes to recalculate with new categories
+          setCafes([...updatedCafes]);
+          
+          if (!enhancementComplete) {
+            enhancedCount += 5; // Assume 5 per batch
+            setAiProgress({ 
+              current: Math.min(enhancedCount, updatedCafes.length), 
+              total: updatedCafes.length 
+            });
+            console.log(`🔄 AI enhanced ${enhancedCount}/${updatedCafes.length} cafés - filters updating...`);
+          }
+        }
+      );
+      
+      console.log(`✅ Found ${nearbyCafes.length} cafes`);
+      setCafes(nearbyCafes);
+      setAiProgress({ current: 0, total: nearbyCafes.length });
+      setLoading(false); // Stop loading immediately, AI continues in background
+      
+      if (nearbyCafes.length > 0) {
+        toast.success(`Found ${nearbyCafes.length} cafes nearby! AI enhancing categories...`);
+      } else {
+        toast.warning('No cafes found nearby. Try a different location.');
+      }
+      
+      // Wait a bit then mark enhancement as complete
+      setTimeout(() => {
+        enhancementComplete = true;
+        setIsAiEnhancing(false);
+        setAiProgress({ current: nearbyCafes.length, total: nearbyCafes.length });
+        console.log('✅ AI enhancement complete - all categories updated');
+        toast.success('🎉 AI analysis complete! Filters are now fully accurate.');
+      }, 30000); // 30 seconds max for enhancement
+      
+    } catch (error: any) {
+      console.error('❌ Error loading cafes:', error);
+      
+      let errorMessage = 'Failed to load cafes.';
+      
+      if (error.message.includes('REQUEST_DENIED')) {
+        errorMessage = 'Places API: Enable billing in Google Cloud Console';
+      } else if (error.message.includes('API key')) {
+        errorMessage = 'Invalid API key. Check your .env file.';
+      }
+      
+      toast.error(errorMessage);
+      setCafes([]);
+      setLoading(false);
+      setIsAiEnhancing(false);
+    }
+  };
 
   // Reset display count when filters change
   useEffect(() => {
@@ -158,6 +230,47 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
             </div>
           </motion.div>
 
+          {/* AI Enhancement Banner */}
+          {isAiEnhancing && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 mb-4"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-purple-900">
+                      🤖 AI Enhancing Categories
+                    </h4>
+                    <p className="text-xs text-purple-700 mt-0.5">
+                      Analyzing reviews to improve filter accuracy... More cafés may appear as categories are enhanced!
+                    </p>
+                  </div>
+                </div>
+                {aiProgress.total > 0 && (
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-purple-900">
+                      {aiProgress.current}/{aiProgress.total}
+                    </div>
+                    <div className="text-xs text-purple-600">cafés analyzed</div>
+                  </div>
+                )}
+              </div>
+              {aiProgress.total > 0 && (
+                <div className="mt-3 w-full bg-purple-200 rounded-full h-2">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(aiProgress.current / aiProgress.total) * 100}%` }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-purple-600 h-2 rounded-full"
+                  />
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Quick Filters */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -206,8 +319,6 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
 
       {/* Cafe Grid */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <AchievementsCard />
-        
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (

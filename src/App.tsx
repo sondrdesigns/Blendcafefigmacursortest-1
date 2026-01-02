@@ -5,13 +5,15 @@ import { AppProvider, useApp } from './lib/AppContext';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './components/HomePage';
 import { ExplorePage } from './components/ExplorePage';
-import { MapPage } from './components/MapPage';
+import { MapPageReal } from './components/MapPageReal';
 import { SocialPage } from './components/SocialPage';
 import { CollectionsPage } from './components/CollectionsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { AuthPage } from './components/AuthPage';
 import { BusinessDashboard } from './components/BusinessDashboard';
 import { ProfilePage } from './components/ProfilePage';
+import { ProfileSetupPage } from './components/ProfileSetupPage';
+import { MessagesPage } from './components/MessagesPage';
 import { CafeDetailModal } from './components/CafeDetailModal';
 import { Toaster } from './components/ui/sonner';
 import { Button } from './components/ui/button';
@@ -20,7 +22,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './comp
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
   const [profileUserId, setProfileUserId] = useState<string | undefined>(undefined);
-  const { isAuthenticated, selectedCafe, setSelectedCafe, user, addToHistory, goBack } = useApp();
+  const [messagesUserId, setMessagesUserId] = useState<string | undefined>(undefined);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const { isAuthenticated, selectedCafe, setSelectedCafe, user, addToHistory, goBack, loading } = useApp();
 
   const handleNavigate = (page: string, userId?: string) => {
     setCurrentPage(page);
@@ -30,6 +34,16 @@ function AppContent() {
     } else if (page === 'profile') {
       setProfileUserId(undefined); // Own profile
     }
+    if (page !== 'messages') {
+      setMessagesUserId(undefined);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenMessages = (friendId: string) => {
+    setMessagesUserId(friendId);
+    setCurrentPage('messages');
+    addToHistory('messages');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -41,8 +55,28 @@ function AppContent() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--brand-primary)' }}></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <AuthPage onNavigate={handleNavigate} />;
+    return <AuthPage onNavigate={handleNavigate} onSignupComplete={() => setShowProfileSetup(true)} />;
+  }
+
+  if (showProfileSetup) {
+    return (
+      <ProfileSetupPage
+        onNavigate={handleNavigate}
+        onComplete={() => setShowProfileSetup(false)}
+      />
+    );
   }
 
   return (
@@ -52,16 +86,17 @@ function AppContent() {
       <main>
         {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
         {currentPage === 'explore' && <ExplorePage onNavigate={handleNavigate} />}
-        {currentPage === 'map' && <MapPage onNavigate={handleNavigate} />}
+        {currentPage === 'map' && <MapPageReal onNavigate={handleNavigate} />}
         {currentPage === 'social' && <SocialPage onNavigate={handleNavigate} />}
         {currentPage === 'collections' && <CollectionsPage type="combined" onNavigate={handleNavigate} />}
         {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
-        {currentPage === 'business' && user.accountType === 'business' && <BusinessDashboard />}
-        {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} userId={profileUserId} />}
+        {currentPage === 'business' && user?.accountType === 'business' && <BusinessDashboard />}
+        {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} onOpenMessages={handleOpenMessages} userId={profileUserId} />}
+        {currentPage === 'messages' && <MessagesPage onNavigate={handleNavigate} initialConversationId={messagesUserId} />}
       </main>
 
       {/* Business Dashboard FAB */}
-      {user.accountType === 'business' && currentPage !== 'business' && (
+      {user?.accountType === 'business' && currentPage !== 'business' && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

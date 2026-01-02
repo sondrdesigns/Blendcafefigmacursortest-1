@@ -1,42 +1,142 @@
-import React, { useState } from 'react';
-import { User, Bell, Lock, Globe } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Bell, Lock, Globe, Camera, MapPin, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
 import { Language, AccountType } from '../lib/types';
+import { AuthService } from '../services/authService';
 import { BackButton } from './BackButton';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+
+// Popular locations for the dropdown
+const LOCATIONS = [
+  { value: 'new-york', label: 'New York City, NY' },
+  { value: 'los-angeles', label: 'Los Angeles, CA' },
+  { value: 'san-francisco', label: 'San Francisco, CA' },
+  { value: 'chicago', label: 'Chicago, IL' },
+  { value: 'seattle', label: 'Seattle, WA' },
+  { value: 'austin', label: 'Austin, TX' },
+  { value: 'portland', label: 'Portland, OR' },
+  { value: 'boston', label: 'Boston, MA' },
+  { value: 'denver', label: 'Denver, CO' },
+  { value: 'miami', label: 'Miami, FL' },
+  { value: 'atlanta', label: 'Atlanta, GA' },
+  { value: 'nashville', label: 'Nashville, TN' },
+  { value: 'philadelphia', label: 'Philadelphia, PA' },
+  { value: 'san-diego', label: 'San Diego, CA' },
+  { value: 'washington-dc', label: 'Washington, D.C.' },
+  { value: 'tokyo', label: 'Tokyo, Japan' },
+  { value: 'london', label: 'London, UK' },
+  { value: 'paris', label: 'Paris, France' },
+  { value: 'sydney', label: 'Sydney, Australia' },
+  { value: 'toronto', label: 'Toronto, Canada' },
+  { value: 'vancouver', label: 'Vancouver, Canada' },
+  { value: 'seoul', label: 'Seoul, South Korea' },
+  { value: 'singapore', label: 'Singapore' },
+  { value: 'melbourne', label: 'Melbourne, Australia' },
+  { value: 'berlin', label: 'Berlin, Germany' },
+];
 
 interface SettingsPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function SettingsPage({ onNavigate }: SettingsPageProps) {
-  const { language, setLanguage, user, setUser } = useApp();
-  const t = translations[language];
-  
-  const [username, setUsername] = useState(user.username);
-  const [email, setEmail] = useState(user.email);
-  const [accountType, setAccountType] = useState<AccountType>(user.accountType);
-  const [visibility, setVisibility] = useState(user.visibility);
+const DEFAULT_AVATAR = '/default-avatar.svg';
 
-  const handleSaveChanges = () => {
-    setUser({
-      ...user,
-      username,
-      email,
-      accountType,
-      visibility,
-    });
-    toast.success('Settings saved successfully!');
+export function SettingsPage({ onNavigate }: SettingsPageProps) {
+  const { language, setLanguage, user, setUser, setIsAuthenticated } = useApp();
+  const t = translations[language];
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [username, setUsername] = useState(user?.username || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [location, setLocation] = useState(user?.location || '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || DEFAULT_AVATAR);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [accountType, setAccountType] = useState<AccountType>(user?.accountType || 'consumer');
+  const [visibility, setVisibility] = useState(user?.visibility || 'public');
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be smaller than 5MB');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      toast.success('Photo uploaded!');
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      // In production, upload avatarFile to storage and get URL
+      const finalAvatarUrl = avatarUrl || DEFAULT_AVATAR;
+
+      await AuthService.updateUserProfile(user.id, {
+        username,
+        email,
+        bio,
+        location,
+        avatar: finalAvatarUrl,
+        accountType,
+        visibility,
+      });
+
+      setUser({
+        ...user,
+        username,
+        email,
+        bio,
+        location,
+        avatar: finalAvatarUrl,
+        accountType,
+        visibility,
+      });
+
+      toast.success('Settings saved successfully!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await AuthService.signOut();
+      setUser(null);
+      setIsAuthenticated(false);
+      toast.success('Signed out successfully');
+      // Will automatically redirect to auth page since isAuthenticated is false
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign out');
+    }
   };
 
   const languages: { code: Language; name: string }[] = [
@@ -66,19 +166,19 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
           <TabsList className="w-full grid grid-cols-4 gap-1">
             <TabsTrigger value="account" className="gap-1 px-2">
               <User className="w-4 h-4" />
-              <span className="hidden md:inline">Account</span>
+              <span className="hidden md:inline">{t.accountTab}</span>
             </TabsTrigger>
             <TabsTrigger value="preferences" className="gap-1 px-2">
               <Globe className="w-4 h-4" />
-              <span className="hidden md:inline">Preferences</span>
+              <span className="hidden md:inline">{t.preferencesTab}</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="gap-1 px-2">
               <Bell className="w-4 h-4" />
-              <span className="hidden md:inline">Notifications</span>
+              <span className="hidden md:inline">{t.notificationsTab}</span>
             </TabsTrigger>
             <TabsTrigger value="privacy" className="gap-1 px-2">
               <Lock className="w-4 h-4" />
-              <span className="hidden md:inline">Privacy</span>
+              <span className="hidden md:inline">{t.privacyTab}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -91,16 +191,46 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                 <CardHeader>
                   <CardTitle>{t.accountSettings}</CardTitle>
                   <CardDescription>
-                    Update your account information
+                    {t.accountSettingsDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Avatar Section */}
                   <div className="flex items-center gap-4">
                     <Avatar className="w-20 h-20">
-                      <AvatarImage src={user.avatar} />
+                      <AvatarImage src={avatarUrl} />
                       <AvatarFallback>{user.username[0]}</AvatarFallback>
                     </Avatar>
-                    <Button variant="outline">Change Photo</Button>
+                    <div className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Change Photo
+                      </Button>
+                      {avatarUrl !== DEFAULT_AVATAR && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setAvatarUrl(DEFAULT_AVATAR);
+                            setAvatarFile(null);
+                          }}
+                          className="text-xs text-gray-500"
+                        >
+                          Remove Photo
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -123,6 +253,46 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="bio">
+                      <FileText className="w-4 h-4 inline mr-2" />
+                      {t.bioLabel}
+                    </Label>
+                    <Textarea
+                      id="bio"
+                      placeholder={t.bioPlaceholder}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      rows={3}
+                      maxLength={200}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {bio.length}/200 {t.characters}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="location">
+                      <MapPin className="w-4 h-4 inline mr-2" />
+                      {t.locationLabel}
+                    </Label>
+                    <Select value={location} onValueChange={setLocation}>
+                      <SelectTrigger id="location" className="w-full">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <SelectValue placeholder={t.locationPlaceholder || "Select your city"} />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {LOCATIONS.map((loc) => (
+                          <SelectItem key={loc.value} value={loc.label}>
+                            {loc.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="accountType">{t.accountType}</Label>
                     <Select value={accountType} onValueChange={(val) => setAccountType(val as AccountType)}>
                       <SelectTrigger id="accountType">
@@ -140,9 +310,23 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                     )}
                   </div>
 
-                  <Button onClick={handleSaveChanges} style={{ backgroundColor: 'var(--brand-primary)' }}>
-                    {t.saveChanges}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleSaveChanges} 
+                      style={{ backgroundColor: 'var(--brand-primary)' }}
+                      disabled={saving}
+                      className="flex-1"
+                    >
+                      {saving ? 'Saving...' : t.saveChanges}
+                    </Button>
+                    <Button 
+                      onClick={handleSignOut} 
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {t.logout}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -155,9 +339,9 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
             >
               <Card>
                 <CardHeader>
-                  <CardTitle>Preferences</CardTitle>
+                  <CardTitle>{t.preferencesTab}</CardTitle>
                   <CardDescription>
-                    Customize your experience
+                    {t.preferencesDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -208,9 +392,9 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
             >
               <Card>
                 <CardHeader>
-                  <CardTitle>Notifications</CardTitle>
+                  <CardTitle>{t.notificationsTab}</CardTitle>
                   <CardDescription>
-                    Manage how you receive notifications
+                    {t.notificationsDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -265,9 +449,9 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
             >
               <Card>
                 <CardHeader>
-                  <CardTitle>Privacy</CardTitle>
+                  <CardTitle>{t.privacyTab}</CardTitle>
                   <CardDescription>
-                    Control who can see your information
+                    {t.privacyDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">

@@ -1,12 +1,16 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language, User, Cafe, Friend } from './types';
-import { currentUser, mockCafes, mockFriends } from './mockData';
+import { mockFriends } from './mockData';
+import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { AuthService } from '../services/authService';
+import { CafeService } from '../services/cafeService';
 
 interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  user: User;
-  setUser: (user: User) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
   favorites: string[];
   addFavorite: (cafeId: string) => void;
   removeFavorite: (cafeId: string) => void;
@@ -24,39 +28,97 @@ interface AppContextType {
   friends: Friend[];
   acceptFriendRequest: (friendId: string) => void;
   declineFriendRequest: (friendId: string) => void;
+  loading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('en');
-  const [user, setUser] = useState<User>(currentUser);
-  const [favorites, setFavorites] = useState<string[]>(['1', '2']);
-  const [wantToTry, setWantToTry] = useState<string[]>(['3', '5']);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [wantToTry, setWantToTry] = useState<string[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
   const friendRequestCount = 2;
   const [friends, setFriends] = useState<Friend[]>(mockFriends);
+  const [loading, setLoading] = useState(true);
 
-  const addFavorite = (cafeId: string) => {
-    if (!favorites.includes(cafeId)) {
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userData = await AuthService.getCurrentUser();
+          if (userData) {
+            setUser(userData);
+            setIsAuthenticated(true);
+            setLanguage(userData.language);
+            
+            // Load user's favorites and want to try lists
+            const userFavorites = await CafeService.getFavorites(firebaseUser.uid);
+            const userWantToTry = await CafeService.getWantToTry(firebaseUser.uid);
+            setFavorites(userFavorites);
+            setWantToTry(userWantToTry);
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        }
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+        setFavorites([]);
+        setWantToTry([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addFavorite = async (cafeId: string) => {
+    if (!user || favorites.includes(cafeId)) return;
+    
+    try {
+      await CafeService.addToFavorites(user.id, cafeId);
       setFavorites([...favorites, cafeId]);
+    } catch (error) {
+      console.error('Error adding favorite:', error);
     }
   };
 
-  const removeFavorite = (cafeId: string) => {
-    setFavorites(favorites.filter(id => id !== cafeId));
+  const removeFavorite = async (cafeId: string) => {
+    if (!user) return;
+    
+    try {
+      await CafeService.removeFromFavorites(user.id, cafeId);
+      setFavorites(favorites.filter(id => id !== cafeId));
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+    }
   };
 
-  const addWantToTry = (cafeId: string) => {
-    if (!wantToTry.includes(cafeId)) {
+  const addWantToTry = async (cafeId: string) => {
+    if (!user || wantToTry.includes(cafeId)) return;
+    
+    try {
+      await CafeService.addToWantToTry(user.id, cafeId);
       setWantToTry([...wantToTry, cafeId]);
+    } catch (error) {
+      console.error('Error adding to want to try:', error);
     }
   };
 
-  const removeWantToTry = (cafeId: string) => {
-    setWantToTry(wantToTry.filter(id => id !== cafeId));
+  const removeWantToTry = async (cafeId: string) => {
+    if (!user) return;
+    
+    try {
+      await CafeService.removeFromWantToTry(user.id, cafeId);
+      setWantToTry(wantToTry.filter(id => id !== cafeId));
+    } catch (error) {
+      console.error('Error removing from want to try:', error);
+    }
   };
 
   const addToHistory = (page: string) => {
@@ -108,6 +170,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         friends,
         acceptFriendRequest,
         declineFriendRequest,
+        loading,
       }}
     >
       {children}

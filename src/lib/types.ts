@@ -8,12 +8,14 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  avatar: string;
+  avatar: string; // URL to avatar image
   accountType: AccountType;
   visibility: 'public' | 'private';
   language: Language;
   reviewCount: number;
   friendCount: number;
+  bio?: string;
+  location?: string;
 }
 
 export interface Cafe {
@@ -44,6 +46,13 @@ export interface Cafe {
   amenities: string[];
   description: string;
   aiAnalysis?: string;
+  aiSummary?: string; // AI-generated café description
+  categorizedReviews?: {
+    category: string;
+    summary: string;
+    sentiment: 'positive' | 'neutral' | 'negative';
+    highlights: string[];
+  }[];
 }
 
 export interface Review {
@@ -64,9 +73,32 @@ export interface Friend {
   id: string;
   username: string;
   avatar: string;
-  status: 'friends' | 'pending' | 'request';
+  status: 'friends' | 'pending' | 'request' | 'accepted';
   mutualFriends: number;
   reviewCount: number;
+  visibility?: 'public' | 'private';
+  bio?: string;
+  location?: string;
+  favorites?: string[];
+  visited?: string[];
+  liked?: string[];
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  timestamp: Date;
+  read: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participantIds: string[];
+  participant: Friend;
+  lastMessage?: Message;
+  unreadCount: number;
 }
 
 export interface Activity {
