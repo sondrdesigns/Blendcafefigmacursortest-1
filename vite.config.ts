@@ -52,53 +52,6 @@ export default defineConfig({
     target: 'esnext',
     outDir: 'dist',
     cssMinify: true,
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // Separate vendor chunks for better caching and code splitting
-          if (id.includes('node_modules')) {
-            // React core
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'react-vendor';
-            }
-            // Animation library
-            if (id.includes('motion')) {
-              return 'motion-vendor';
-            }
-            // UI components - split into smaller chunks
-            if (id.includes('@radix-ui')) {
-              if (id.includes('dialog') || id.includes('dropdown-menu') || id.includes('select')) {
-                return 'ui-core';
-              }
-              return 'ui-vendor';
-            }
-            // Firebase
-            if (id.includes('firebase')) {
-              return 'firebase-vendor';
-            }
-            // Other vendors
-            return 'vendor';
-          }
-        },
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const name = assetInfo.name || '';
-          if (name.endsWith('.css')) {
-            return 'assets/css/[name]-[hash].[ext]';
-          }
-          if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(name)) {
-            return 'assets/images/[name]-[hash].[ext]';
-          }
-          return 'assets/[ext]/[name]-[hash].[ext]';
-        },
-      },
-      treeshake: {
-        moduleSideEffects: 'no-external',
-        preset: 'smallest',
-        propertyReadSideEffects: false,
-      },
-    },
     reportCompressedSize: true,
   },
   server: {
