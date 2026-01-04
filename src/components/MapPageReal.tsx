@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, SlidersHorizontal, List, Maximize2, ChevronDown, ChevronUp, X, Navigation2, MapPin, Star, Clock, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import { useApp } from '../lib/AppContext';
 import { translations, categories } from '../lib/mockData';
 import { Cafe } from '../lib/types';
@@ -40,6 +41,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const radiusCircleRef = useRef<google.maps.Circle | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
 
@@ -154,58 +156,128 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
     }
   };
 
+  // Custom cluster renderer for cafe-themed clusters
+  const createClusterRenderer = () => {
+    return {
+      render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
+        // Determine size based on count
+        const size = count < 10 ? 50 : count < 25 ? 60 : count < 50 ? 70 : 80;
+        const fontSize = count < 10 ? 16 : count < 25 ? 18 : count < 50 ? 20 : 22;
+        
+        // Create cafe-themed cluster SVG
+        const clusterSvg = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+            <defs>
+              <filter id="cluster-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/>
+              </filter>
+              <linearGradient id="cluster-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#D97706"/>
+                <stop offset="100%" style="stop-color:#b8834a"/>
+              </linearGradient>
+            </defs>
+            <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 4}" fill="url(#cluster-gradient)" filter="url(#cluster-shadow)"/>
+            <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 8}" fill="white" opacity="0.9"/>
+            <text x="${size/2}" y="${size/2 + fontSize/3}" text-anchor="middle" font-size="${fontSize}" font-weight="bold" fill="#b8834a">${count}</text>
+            <text x="${size/2}" y="${size/2 + fontSize/3 + 12}" text-anchor="middle" font-size="10" fill="#9CA3AF">cafés</text>
+          </svg>
+        `;
+
+        return new google.maps.Marker({
+          position,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(clusterSvg),
+            scaledSize: new google.maps.Size(size, size),
+            anchor: new google.maps.Point(size / 2, size / 2)
+          },
+          label: '',
+          zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+        });
+      }
+    };
+  };
+
   const updateMarkers = (cafesToShow: Cafe[]) => {
     if (!mapInstanceRef.current) return;
 
-    // Clear existing markers
+    // Clear existing clusterer and markers
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+    }
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    // Add new markers with improved visuals
-    cafesToShow.forEach((cafe, index) => {
+    // Create markers for each cafe
+    const markers = cafesToShow.map((cafe, index) => {
       // Color based on status and rating
       const baseColor = cafe.status === 'open' ? '#b8834a' : '#9CA3AF';
       const isHighRated = cafe.rating >= 4.5;
       const markerColor = isHighRated && cafe.status === 'open' ? '#D97706' : baseColor;
       
-      // Create attractive marker SVG with unique filter ID
-      const filterId = `shadow-${cafe.id}`;
+      // Create attractive marker SVG
       const markerSvg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
           <defs>
-            <filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%">
+            <filter id="m-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%">
               <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
             </filter>
           </defs>
-          <path d="M22 0C10 0 0 10 0 22c0 15 22 30 22 30s22-15 22-30C44 10 34 0 22 0z" fill="${markerColor}" filter="url(#${filterId})"/>
-          <circle cx="22" cy="20" r="12" fill="white"/>
-          <text x="22" y="25" text-anchor="middle" font-size="14" fill="${markerColor}">☕</text>
-          ${isHighRated ? '<circle cx="34" cy="8" r="6" fill="#FBBF24"/><text x="34" y="11" text-anchor="middle" font-size="8" fill="white">★</text>' : ''}
+          <path d="M20 0C9 0 0 9 0 20c0 14 20 28 20 28s20-14 20-28C40 9 31 0 20 0z" fill="${markerColor}" filter="url(#m-shadow-${index})"/>
+          <circle cx="20" cy="18" r="10" fill="white"/>
+          <text x="20" y="22" text-anchor="middle" font-size="12" fill="${markerColor}">☕</text>
+          ${isHighRated ? '<circle cx="32" cy="6" r="5" fill="#FBBF24"/><text x="32" y="9" text-anchor="middle" font-size="7" fill="white">★</text>' : ''}
         </svg>
       `;
 
       const marker = new google.maps.Marker({
         position: { lat: cafe.location.lat, lng: cafe.location.lng },
-        map: mapInstanceRef.current,
         title: `${cafe.name} - ${cafe.rating.toFixed(1)}⭐`,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(markerSvg),
-          scaledSize: new google.maps.Size(44, 52),
-          anchor: new google.maps.Point(22, 52)
+          scaledSize: new google.maps.Size(40, 48),
+          anchor: new google.maps.Point(20, 48)
         },
         zIndex: isHighRated ? 100 : 50 - index
       });
+
+      // Store cafe data on marker for click handling
+      (marker as any).cafeData = cafe;
 
       marker.addListener('click', () => {
         setSelectedMapCafe(cafe);
         if (mapInstanceRef.current) {
           mapInstanceRef.current.panTo({ lat: cafe.location.lat, lng: cafe.location.lng });
-          mapInstanceRef.current.setZoom(16);
+          mapInstanceRef.current.setZoom(17);
         }
       });
 
-      markersRef.current.push(marker);
+      return marker;
     });
+
+    markersRef.current = markers;
+
+    // Create or update clusterer
+    if (!clustererRef.current && mapInstanceRef.current) {
+      clustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers: markers,
+        algorithm: new SuperClusterAlgorithm({ 
+          radius: 80,  // Cluster radius in pixels
+          maxZoom: 15  // Stop clustering at this zoom level
+        }),
+        renderer: createClusterRenderer(),
+        onClusterClick: (event, cluster, map) => {
+          // Zoom in when cluster is clicked
+          const bounds = cluster.bounds;
+          if (bounds) {
+            map.fitBounds(bounds);
+          }
+        }
+      });
+    } else if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current.addMarkers(markers);
+    }
   };
 
   const loadCafes = async (location: { lat: number; lng: number }, radius: number) => {
