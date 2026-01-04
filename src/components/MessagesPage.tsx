@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Search, MoreVertical, Image as ImageIcon, Coffee, Trash2, Ban, Check, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
-import { mockConversations, mockMessages, mockFriends } from '../lib/mockData';
-import { Message, Conversation } from '../lib/types';
+import { Message, Conversation, Friend } from '../lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
   DropdownMenu,
@@ -12,39 +11,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, or, and, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface MessagesPageProps {
   onNavigate: (page: string) => void;
   initialConversationId?: string;
 }
 
-// Load messages from localStorage or use mock data
-const getInitialMessages = (): Message[] => {
-  try {
-    const stored = localStorage.getItem('blend_chat_messages');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Convert timestamp strings back to Date objects
-      return parsed.map((m: Message & { timestamp: string }) => ({
-        ...m,
-        timestamp: new Date(m.timestamp)
-      }));
-    }
-  } catch (e) {
-    console.error('Error loading messages from localStorage:', e);
-  }
-  return mockMessages;
-};
-
 export function MessagesPage({ onNavigate, initialConversationId }: MessagesPageProps) {
-  const { user } = useApp();
+  const { user, friends } = useApp();
   
-  // Use 'user1' as the consistent user ID for this chat system
-  const MY_USER_ID = 'user1';
+  // Use the current authenticated user's ID
+  const MY_USER_ID = user?.id || '';
   
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -53,14 +36,59 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Save messages to localStorage whenever they change
+  // Build conversations from friends list
   useEffect(() => {
-    try {
-      localStorage.setItem('blend_chat_messages', JSON.stringify(messages));
-    } catch (e) {
-      console.error('Error saving messages to localStorage:', e);
-    }
-  }, [messages]);
+    if (!MY_USER_ID) return;
+    
+    // Get friends who are actually accepted friends (not pending/requests)
+    const acceptedFriends = friends.filter(f => f.status === 'friends' || f.status === 'accepted');
+    
+    // Create a conversation for each friend
+    const friendConversations: Conversation[] = acceptedFriends.map(friend => ({
+      id: `conv-${[MY_USER_ID, friend.id].sort().join('-')}`,
+      participantIds: [MY_USER_ID, friend.id],
+      participant: friend,
+      unreadCount: 0,
+    }));
+    
+    setConversations(friendConversations);
+  }, [friends, MY_USER_ID]);
+
+  // Listen to messages from Firestore in real-time
+  useEffect(() => {
+    if (!MY_USER_ID) return;
+
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+      messagesRef,
+      or(
+        where('senderId', '==', MY_USER_ID),
+        where('receiverId', '==', MY_USER_ID)
+      )
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const loadedMessages: Message[] = [];
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        loadedMessages.push({
+          id: doc.id,
+          senderId: data.senderId,
+          receiverId: data.receiverId,
+          text: data.text,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          read: data.read || false,
+        });
+      });
+      // Sort by timestamp
+      loadedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      setMessages(loadedMessages);
+    }, (error) => {
+      console.error('Error listening to messages:', error);
+    });
+
+    return () => unsubscribe();
+  }, [MY_USER_ID]);
 
   // Filter messages for selected conversation
   const conversationMessages = selectedConversation
@@ -85,27 +113,32 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     }
   }, [conversationMessages.length, isTyping]);
 
-  // Set initial conversation from prop
+  // Set initial conversation from prop (when clicking "Message" from a friend's profile)
   useEffect(() => {
-    if (initialConversationId) {
+    if (initialConversationId && conversations.length > 0) {
       const conv = conversations.find(c => c.participant.id === initialConversationId);
       if (conv) {
         setSelectedConversation(conv);
       } else {
-        const friend = mockFriends.find(f => f.id === initialConversationId);
+        // Check if this person is a friend
+        const friend = friends.find(f => f.id === initialConversationId && (f.status === 'friends' || f.status === 'accepted'));
         if (friend) {
           const newConv: Conversation = {
-            id: `conv-new-${Date.now()}`,
-            participantIds: [user?.id || 'user1', friend.id],
+            id: `conv-${[MY_USER_ID, friend.id].sort().join('-')}`,
+            participantIds: [MY_USER_ID, friend.id],
             participant: friend,
             unreadCount: 0,
           };
-          setConversations(prev => [newConv, ...prev]);
+          setConversations(prev => {
+            // Avoid duplicates
+            if (prev.some(c => c.id === newConv.id)) return prev;
+            return [newConv, ...prev];
+          });
           setSelectedConversation(newConv);
         }
       }
     }
-  }, [initialConversationId]);
+  }, [initialConversationId, conversations.length, friends, MY_USER_ID]);
 
   const handleSelectConversation = (conv: Conversation) => {
     setSelectedConversation(conv);
@@ -137,24 +170,50 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   };
 
   // Delete selected messages
-  const handleDeleteSelectedMessages = () => {
+  const handleDeleteSelectedMessages = async () => {
     if (selectedMessages.size === 0) return;
-    setMessages(prev => prev.filter(m => !selectedMessages.has(m.id)));
-    setSelectedMessages(new Set());
-    setIsSelectMode(false);
+    
+    try {
+      // Import deleteDoc
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      
+      // Delete each selected message from Firestore
+      for (const messageId of selectedMessages) {
+        await deleteDoc(doc(db, 'messages', messageId));
+      }
+      
+      // The real-time listener will update the UI
+      setSelectedMessages(new Set());
+      setIsSelectMode(false);
+    } catch (error) {
+      console.error('Error deleting messages:', error);
+    }
   };
 
-  // Delete entire conversation
-  const handleDeleteConversation = () => {
-    if (!selectedConversation) return;
-    const participantId = selectedConversation.participant.id;
-    // Remove all messages with this participant
-    setMessages(prev => prev.filter(m => 
-      !(m.senderId === participantId || m.receiverId === participantId)
-    ));
-    // Remove conversation from list
-    setConversations(prev => prev.filter(c => c.id !== selectedConversation.id));
-    setSelectedConversation(null);
+  // Delete entire conversation (deletes all messages with this participant)
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation || !MY_USER_ID) return;
+    
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const participantId = selectedConversation.participant.id;
+      
+      // Find all messages in this conversation and delete them
+      const messagesToDelete = messages.filter(m => 
+        (m.senderId === MY_USER_ID && m.receiverId === participantId) ||
+        (m.senderId === participantId && m.receiverId === MY_USER_ID)
+      );
+      
+      for (const message of messagesToDelete) {
+        await deleteDoc(doc(db, 'messages', message.id));
+      }
+      
+      // Remove conversation from list
+      setConversations(prev => prev.filter(c => c.id !== selectedConversation.id));
+      setSelectedConversation(null);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
   };
 
   // Block user (removes conversation and prevents future messages)
@@ -168,53 +227,30 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     localStorage.setItem('blend_blocked_users', JSON.stringify(blocked));
   };
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || !MY_USER_ID) return;
 
     const messageText = newMessage.trim();
-    const message: Message = {
-      id: `m-${Date.now()}`,
-      senderId: MY_USER_ID,
-      receiverId: selectedConversation.participant.id,
-      text: messageText,
-      timestamp: new Date(),
-      read: false,
-    };
-
+    
     // Clear input immediately
     setNewMessage('');
     
-    // Add message to state
-    setMessages(prev => [...prev, message]);
-    setConversations(convs =>
-      convs.map(c =>
-        c.id === selectedConversation.id
-          ? { ...c, lastMessage: message }
-          : c
-      )
-    );
-
-    // Simulate typing response
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const responses = [
-        "That sounds great! ☕",
-        "I love that café too!",
-        "Let's definitely go there soon!",
-        "Have you tried their specialty drinks?",
-        "Perfect! Can't wait 🙌",
-      ];
-      const responseMessage: Message = {
-        id: `m-${Date.now() + 1}`,
-        senderId: selectedConversation.participant.id,
-        receiverId: MY_USER_ID,
-        text: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date(),
+    try {
+      // Save message to Firestore
+      await addDoc(collection(db, 'messages'), {
+        senderId: MY_USER_ID,
+        receiverId: selectedConversation.participant.id,
+        text: messageText,
+        timestamp: Timestamp.now(),
         read: false,
-      };
-      setMessages(prev => [...prev, responseMessage]);
-    }, 1500 + Math.random() * 1000);
+      });
+      
+      // The real-time listener will automatically update the messages state
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Restore the message if failed
+      setNewMessage(messageText);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

@@ -4,7 +4,7 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { AuthService } from '../services/authService';
 import { CafeService } from '../services/cafeService';
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 interface AppContextType {
   language: Language;
@@ -48,38 +48,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const friendRequestCount = friends.filter(f => f.status === 'request').length;
 
-  // Load friends from Firestore
-  const loadFriends = async (userId: string) => {
-    try {
-      const friendsRef = collection(db, 'friendships');
-      const q = query(friendsRef, where('users', 'array-contains', userId));
-      const snapshot = await getDocs(q);
-      
+  // Set up real-time listener for friendships
+  useEffect(() => {
+    if (!user?.id) {
+      setFriends([]);
+      return;
+    }
+
+    const friendsRef = collection(db, 'friendships');
+    const q = query(friendsRef, where('users', 'array-contains', user.id));
+    
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       const loadedFriends: Friend[] = [];
+      
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const friendUserId = data.users.find((id: string) => id !== userId);
+        const friendUserId = data.users.find((id: string) => id !== user.id);
         if (friendUserId) {
-          const friendDoc = await getDoc(doc(db, 'users', friendUserId));
-          if (friendDoc.exists()) {
-            const friendData = friendDoc.data();
-            loadedFriends.push({
-              id: friendUserId,
-              username: friendData.username || 'User',
-              avatar: friendData.avatar || '/default-avatar.svg',
-              status: data.status === 'accepted' ? 'friends' : 
-                      data.requestedBy === userId ? 'pending' : 'request',
-              mutualFriends: 0,
-              reviewCount: friendData.reviewCount || 0,
-            });
+          try {
+            const friendDoc = await getDoc(doc(db, 'users', friendUserId));
+            if (friendDoc.exists()) {
+              const friendData = friendDoc.data();
+              loadedFriends.push({
+                id: friendUserId,
+                username: friendData.username || 'User',
+                avatar: friendData.avatar || '/default-avatar.svg',
+                status: data.status === 'accepted' ? 'friends' : 
+                        data.requestedBy === user.id ? 'pending' : 'request',
+                mutualFriends: 0,
+                reviewCount: friendData.reviewCount || 0,
+              });
+            }
+          } catch (error) {
+            console.error('Error loading friend data:', error);
           }
         }
       }
       setFriends(loadedFriends);
-    } catch (error) {
-      console.error('Error loading friends:', error);
-    }
-  };
+    }, (error) => {
+      console.error('Error listening to friendships:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -97,9 +108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const userWantToTry = await CafeService.getWantToTry(firebaseUser.uid);
             setFavorites(userFavorites);
             setWantToTry(userWantToTry);
-            
-            // Load friends from Firestore
-            await loadFriends(firebaseUser.uid);
+            // Friends are loaded via real-time listener in separate useEffect
           }
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -255,9 +264,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         acceptedAt: new Date(),
       }, { merge: true });
       
-      setFriends(prevFriends => prevFriends.map(friend => 
-        friend.id === friendId ? { ...friend, status: 'friends' } : friend
-      ));
+      // Update friend counts for both users
+      const userRef = doc(db, 'users', user.id);
+      const friendRef = doc(db, 'users', friendId);
+      
+      const [userDoc, friendDoc] = await Promise.all([
+        getDoc(userRef),
+        getDoc(friendRef)
+      ]);
+      
+      if (userDoc.exists()) {
+        await updateDoc(userRef, { 
+          friendCount: (userDoc.data().friendCount || 0) + 1 
+        });
+      }
+      if (friendDoc.exists()) {
+        await updateDoc(friendRef, { 
+          friendCount: (friendDoc.data().friendCount || 0) + 1 
+        });
+      }
+      
+      // The real-time listener will update the friends list
     } catch (error) {
       console.error('Error accepting friend request:', error);
     }

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, MapPin, Calendar, Trophy, Star, Coffee, Heart, MessageSquare, Settings as SettingsIcon, UserPlus, UserCheck, Users, Lock, ThumbsUp, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
-import { translations, mockFriends, mockCafes } from '../lib/mockData';
+import { translations, mockCafes } from '../lib/mockData';
 import { BackButton } from './BackButton';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -10,6 +10,8 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface ProfilePageProps {
   onNavigate: (page: string) => void;
@@ -17,13 +19,58 @@ interface ProfilePageProps {
   userId?: string; // If provided, shows that user's profile; otherwise shows current user
 }
 
+interface ViewedUser {
+  id: string;
+  username: string;
+  email?: string;
+  avatar: string;
+  bio?: string;
+  location?: string;
+  reviewCount: number;
+  friendCount: number;
+  visibility?: 'public' | 'private';
+}
+
 export function ProfilePage({ onNavigate, onOpenMessages, userId }: ProfilePageProps) {
-  const { language, user, friends } = useApp();
+  const { language, user, friends, favorites, sendFriendRequest } = useApp();
   const t = translations[language];
   const isOwnProfile = !userId || userId === user?.id;
+  const [viewedUser, setViewedUser] = useState<ViewedUser | null>(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [addingFriend, setAddingFriend] = useState(false);
 
-  // Find the friend data if viewing someone else's profile
-  const friendData = userId ? mockFriends.find(f => f.id === userId) || friends.find(f => f.id === userId) : null;
+  // Load viewed user's profile from Firestore
+  useEffect(() => {
+    if (!isOwnProfile && userId) {
+      const loadUserProfile = async () => {
+        setLoadingUser(true);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setViewedUser({
+              id: userId,
+              username: data.username || 'User',
+              email: data.email,
+              avatar: data.avatar || '/default-avatar.svg',
+              bio: data.bio || '',
+              location: data.location || '',
+              reviewCount: data.reviewCount || 0,
+              friendCount: data.friendCount || 0,
+              visibility: data.visibility || 'public',
+            });
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+        setLoadingUser(false);
+      };
+      loadUserProfile();
+    }
+  }, [userId, isOwnProfile]);
+
+  // Find the friend data if viewing someone else's profile (from local friends list)
+  const friendData = userId ? friends.find(f => f.id === userId) : null;
   
   // Check friendship status
   const isFriend = friendData ? (friendData.status === 'friends' || friendData.status === 'accepted') : false;
@@ -32,26 +79,26 @@ export function ProfilePage({ onNavigate, onOpenMessages, userId }: ProfilePageP
   
   // Determine if we can view their collections (public OR private but friends)
   const canViewCollections = isOwnProfile || 
-    (friendData?.visibility === 'public') || 
-    (friendData?.visibility === 'private' && isFriend);
+    (viewedUser?.visibility === 'public') || 
+    (viewedUser?.visibility === 'private' && isFriend);
 
-  // Mock data for profile
+  // Profile data - use real data from Firestore
   const profileData = {
     id: userId || user?.id || '',
-    username: isOwnProfile ? (user?.username || 'User') : (friendData?.username || 'emma_coffee'),
-    email: isOwnProfile ? (user?.email || '') : 'user@example.com',
-    avatar: isOwnProfile ? (user?.avatar || '') : (friendData?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=emma'),
+    username: isOwnProfile ? (user?.username || 'User') : (viewedUser?.username || 'User'),
+    email: isOwnProfile ? (user?.email || '') : (viewedUser?.email || ''),
+    avatar: isOwnProfile ? (user?.avatar || '/default-avatar.svg') : (viewedUser?.avatar || '/default-avatar.svg'),
     bio: isOwnProfile 
-      ? (user?.bio || 'Coffee enthusiast ☕ | Always seeking the perfect brew')
-      : (friendData?.bio || 'Specialty coffee lover | Latte art enthusiast | Brooklyn'),
-    location: isOwnProfile ? (user?.location || 'New York, NY') : (friendData?.location || 'Brooklyn, NY'),
+      ? (user?.bio || 'No bio yet')
+      : (viewedUser?.bio || 'No bio yet'),
+    location: isOwnProfile ? (user?.location || 'Not set') : (viewedUser?.location || 'Not set'),
     memberSince: 'January 2024',
-    reviewCount: isOwnProfile ? (user?.reviewCount || 0) : (friendData?.reviewCount || 28),
-    friendCount: isOwnProfile ? (user?.friendCount || 0) : 64,
-    favoritesCount: friendData?.favorites?.length || 12,
-    visitedCount: friendData?.visited?.length || 45,
-    likedCount: friendData?.liked?.length || 8,
-    visibility: friendData?.visibility || 'public',
+    reviewCount: isOwnProfile ? (user?.reviewCount || 0) : (viewedUser?.reviewCount || 0),
+    friendCount: isOwnProfile ? (friends.filter(f => f.status === 'friends' || f.status === 'accepted').length) : (viewedUser?.friendCount || 0),
+    favoritesCount: isOwnProfile ? favorites.length : 0,
+    visitedCount: 0, // Will be loaded from Firestore if needed
+    likedCount: 0,   // Will be loaded from Firestore if needed
+    visibility: viewedUser?.visibility || 'public',
     mutualFriends: friendData?.mutualFriends || 0,
   };
 
@@ -74,7 +121,7 @@ export function ProfilePage({ onNavigate, onOpenMessages, userId }: ProfilePageP
   // Get mutual friends
   const getMutualFriends = () => {
     // Return first few friends as "mutual" for demo
-    return mockFriends.filter(f => f.status === 'friends').slice(0, profileData.mutualFriends > 3 ? 3 : profileData.mutualFriends);
+    return friends.filter(f => f.status === 'friends').slice(0, profileData.mutualFriends > 3 ? 3 : profileData.mutualFriends);
   };
 
   const achievements = [
@@ -162,14 +209,15 @@ export function ProfilePage({ onNavigate, onOpenMessages, userId }: ProfilePageP
     { label: t.visited || 'Visited', value: profileData.visitedCount, icon: Coffee },
   ];
 
-  const [addingFriend, setAddingFriend] = useState(false);
-  
-  const handleAddFriend = () => {
+  const handleAddFriend = async () => {
+    if (!userId || addingFriend) return;
     setAddingFriend(true);
-    // Simulate API call
-    setTimeout(() => {
-      setAddingFriend(false);
-    }, 1000);
+    try {
+      await sendFriendRequest(userId);
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+    }
+    setAddingFriend(false);
   };
 
   const handleMessage = () => {
