@@ -1,6 +1,6 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { BarChart3 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { BarChart3, Coffee } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './lib/AppContext';
 import { Navigation } from './components/Navigation';
 import { Toaster } from './components/ui/sonner';
@@ -21,15 +21,77 @@ const ProfileSetupPage = lazy(() => import('./components/ProfileSetupPage').then
 const MessagesPage = lazy(() => import('./components/MessagesPage').then(m => ({ default: m.MessagesPage })));
 const CafeDetailModal = lazy(() => import('./components/CafeDetailModal').then(m => ({ default: m.CafeDetailModal })));
 
-// Loading spinner component
-function PageLoader() {
+// Beautiful cafe-themed loading screen - lightweight and smooth
+function CafeLoader({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
+    <div className={`${fullScreen ? 'min-h-screen' : 'min-h-[50vh]'} flex items-center justify-center bg-gradient-to-br from-amber-50/80 via-orange-50/60 to-yellow-50/40`}>
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: 'var(--brand-primary)' }}></div>
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        {/* Coffee cup with steam animation */}
+        <div className="relative w-16 h-16 mx-auto mb-4">
+          {/* Cup */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <Coffee className="w-10 h-10" style={{ color: 'var(--brand-primary)' }} />
+          </motion.div>
+          
+          {/* Steam lines - CSS-only for better mobile performance */}
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-1 h-4 rounded-full bg-gradient-to-t from-amber-400/60 to-transparent steam-line"
+                style={{ 
+                  animationDelay: `${i * 0.15}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        
+        {/* Pulsing dots */}
+        <div className="flex justify-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+              animate={{ 
+                scale: [1, 1.3, 1],
+                opacity: [0.5, 1, 0.5]
+              }}
+              transition={{
+                duration: 0.8,
+                repeat: Infinity,
+                delay: i * 0.15,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
+  );
+}
+
+// Page transition wrapper for smooth page changes
+function PageWrapper({ children, ...props }: { children: React.ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ 
+        duration: 0.25,
+        ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smooth feel
+      }}
+      {...props}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -70,19 +132,12 @@ function AppContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--brand-primary)' }}></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <CafeLoader fullScreen />;
   }
 
   if (!isAuthenticated) {
     return (
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<CafeLoader fullScreen />}>
         <AuthPage onNavigate={handleNavigate} onSignupComplete={() => setShowProfileSetup(true)} />
       </Suspense>
     );
@@ -90,7 +145,7 @@ function AppContent() {
 
   if (showProfileSetup) {
     return (
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<CafeLoader fullScreen />}>
         <ProfileSetupPage
           onNavigate={handleNavigate}
           onComplete={() => setShowProfileSetup(false)}
@@ -104,16 +159,54 @@ function AppContent() {
       <Navigation currentPage={currentPage} onNavigate={handleNavigate} />
       
       <main>
-        <Suspense fallback={<PageLoader />}>
-          {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
-          {currentPage === 'explore' && <ExplorePage onNavigate={handleNavigate} />}
-          {currentPage === 'map' && <MapPageReal onNavigate={handleNavigate} />}
-          {currentPage === 'social' && <SocialPage onNavigate={handleNavigate} />}
-          {currentPage === 'collections' && <CollectionsPage type="combined" onNavigate={handleNavigate} />}
-          {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
-          {currentPage === 'business' && user?.accountType === 'business' && <BusinessDashboard />}
-          {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} onOpenMessages={handleOpenMessages} userId={profileUserId} />}
-          {currentPage === 'messages' && <MessagesPage onNavigate={handleNavigate} initialConversationId={messagesUserId} />}
+        <Suspense fallback={<CafeLoader />}>
+          <AnimatePresence mode="wait">
+            {currentPage === 'home' && (
+              <PageWrapper key="home">
+                <HomePage onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'explore' && (
+              <PageWrapper key="explore">
+                <ExplorePage onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'map' && (
+              <PageWrapper key="map">
+                <MapPageReal onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'social' && (
+              <PageWrapper key="social">
+                <SocialPage onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'collections' && (
+              <PageWrapper key="collections">
+                <CollectionsPage type="combined" onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'settings' && (
+              <PageWrapper key="settings">
+                <SettingsPage onNavigate={handleNavigate} />
+              </PageWrapper>
+            )}
+            {currentPage === 'business' && user?.accountType === 'business' && (
+              <PageWrapper key="business">
+                <BusinessDashboard />
+              </PageWrapper>
+            )}
+            {currentPage === 'profile' && (
+              <PageWrapper key="profile">
+                <ProfilePage onNavigate={handleNavigate} onOpenMessages={handleOpenMessages} userId={profileUserId} />
+              </PageWrapper>
+            )}
+            {currentPage === 'messages' && (
+              <PageWrapper key="messages">
+                <MessagesPage onNavigate={handleNavigate} initialConversationId={messagesUserId} />
+              </PageWrapper>
+            )}
+          </AnimatePresence>
         </Suspense>
       </main>
 

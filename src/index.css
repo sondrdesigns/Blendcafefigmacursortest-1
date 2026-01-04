@@ -3451,10 +3451,17 @@ html {
   background: var(--brand-primary-dark);
 }
 
-* {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-duration: .15s;
-  transition-timing-function: cubic-bezier(.4, 0, .2, 1);
+/* Optimized transitions - only on interactive elements for better mobile performance */
+button, a, input, select, textarea, [role="button"] {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, transform, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Smooth hover transitions for cards */
+.hover\:shadow-lg, .hover\:shadow-xl, .hover\:shadow-md {
+  transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+              box-shadow 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 @keyframes slideUp {
@@ -3500,6 +3507,92 @@ html {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Coffee steam animation - lightweight for mobile */
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scaleY(1.5);
+  }
+}
+
+.steam-line {
+  animation: steam 1.2s ease-in-out infinite;
+}
+
+/* Smooth button press effect */
+@keyframes buttonPress {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+.btn-press:active {
+  animation: buttonPress 0.15s ease-out;
+}
+
+/* Card hover lift effect */
+@keyframes cardLift {
+  from {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+  }
+  to {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* Smooth skeleton loading */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    var(--accent) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Stagger animation helper */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .steam-line {
+    animation: none;
+    opacity: 0.3;
   }
 }
 
