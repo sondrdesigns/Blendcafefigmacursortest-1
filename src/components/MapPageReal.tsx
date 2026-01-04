@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, SlidersHorizontal, List, Maximize2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, SlidersHorizontal, List, Maximize2, ChevronDown, ChevronUp, X, Navigation2, MapPin, Star, Clock, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations, categories } from '../lib/mockData';
@@ -16,6 +16,20 @@ import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
 import { toast } from 'sonner';
 
+// Helper to detect device type for maps redirection
+const getDirectionsUrl = (address: string, lat: number, lng: number): string => {
+  const encodedAddress = encodeURIComponent(address);
+  const isAppleDevice = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent);
+  
+  if (isAppleDevice) {
+    // Apple Maps URL
+    return `https://maps.apple.com/?daddr=${encodedAddress}&ll=${lat},${lng}&dirflg=d`;
+  } else {
+    // Google Maps URL
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&destination_place_id=${lat},${lng}`;
+  }
+};
+
 interface MapPageRealProps {
   onNavigate: (page: string) => void;
 }
@@ -26,6 +40,8 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const radiusCircleRef = useRef<google.maps.Circle | null>(null);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showList, setShowList] = useState(false);
@@ -48,12 +64,23 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
     initializeMap();
   }, []);
 
-  // Update cafes when radius changes
+  // Update cafes and radius circle when radius changes
   useEffect(() => {
     if (userLocation) {
+      // Update the radius circle
+      if (radiusCircleRef.current) {
+        radiusCircleRef.current.setRadius(radiusMiles[0] * 1609.34);
+      }
+      
+      // Adjust zoom based on radius
+      if (mapInstanceRef.current) {
+        const zoomLevel = radiusMiles[0] <= 1 ? 15 : radiusMiles[0] <= 3 ? 14 : radiusMiles[0] <= 5 ? 13 : 12;
+        mapInstanceRef.current.setZoom(zoomLevel);
+      }
+      
       loadCafes(userLocation, radiusMiles[0]);
     }
-  }, [radiusMiles]);
+  }, [radiusMiles, loadCafes, userLocation]);
 
   // Apply filters when filter settings change
   useEffect(() => {
@@ -80,19 +107,34 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
 
         console.log('✅ Map created successfully');
 
-        // Add user location marker
-        new google.maps.Marker({
+        // Add radius circle to show search area
+        radiusCircleRef.current = new google.maps.Circle({
+          strokeColor: '#b8834a',
+          strokeOpacity: 0.4,
+          strokeWeight: 2,
+          fillColor: '#b8834a',
+          fillOpacity: 0.08,
+          map: map,
+          center: location,
+          radius: radiusMiles[0] * 1609.34, // Convert miles to meters
+        });
+
+        // Add user location marker with pulsing effect
+        userMarkerRef.current = new google.maps.Marker({
           position: location,
           map: map,
           icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#4285F4',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="14" fill="#4285F4" stroke="white" stroke-width="3"/>
+                <circle cx="16" cy="16" r="6" fill="white"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(32, 32),
+            anchor: new google.maps.Point(16, 16)
           },
-          title: 'Your Location'
+          title: 'Your Location',
+          zIndex: 1000
         });
 
         // Load cafes
@@ -114,13 +156,13 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
     }
   };
 
-  const loadCafes = async (location: { lat: number; lng: number }, radiusMiles: number) => {
+  const loadCafes = useCallback(async (location: { lat: number; lng: number }, radius: number) => {
     setLoading(true);
     setIsAiEnhancing(true);
     
     try {
-      const radiusMeters = radiusMiles * 1609.34; // Convert miles to meters
-      console.log(`🔍 Loading cafes within ${radiusMiles} miles (${radiusMeters}m)...`);
+      const radiusMeters = radius * 1609.34; // Convert miles to meters
+      console.log(`🔍 Loading cafes within ${radius} miles (${radiusMeters}m)...`);
       
       let enhancementComplete = false;
       let enhancedCount = 0;
@@ -130,13 +172,12 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
         location, 
         radiusMeters,
         (updatedCafes) => {
-          // Apply filters and update state as AI processes each batch
-          // This ensures filters work with updated categories
+          // Apply current filters and update state as AI processes each batch
           const filteredCafes = CafeService.filterCafes(updatedCafes, {
-            categories: filters.categories.length > 0 ? filters.categories : undefined,
-            openNow: filters.openNow,
-            minRating: filters.minRating > 0 ? filters.minRating : undefined,
-            maxDistance: radiusMiles
+            categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+            openNow: openNow || undefined,
+            minRating: minRating[0] > 0 ? minRating[0] : undefined,
+            maxDistance: radius
           });
           setCafes([...filteredCafes]);
           updateMarkers(filteredCafes);
@@ -154,12 +195,12 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       
       console.log(`📍 Received ${nearbyCafes.length} cafes from Places API`);
       
-      // Apply filters
+      // Apply current filters
       const filteredCafes = CafeService.filterCafes(nearbyCafes, {
-        categories: filters.categories.length > 0 ? filters.categories : undefined,
-        openNow: filters.openNow,
-        minRating: filters.minRating > 0 ? filters.minRating : undefined,
-        maxDistance: radiusMiles
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        openNow: openNow || undefined,
+        minRating: minRating[0] > 0 ? minRating[0] : undefined,
+        maxDistance: radius
       });
 
       console.log(`✅ After filtering: ${filteredCafes.length} cafes`);
@@ -171,7 +212,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       setLoading(false); // Stop loading immediately, AI continues in background
       
       if (filteredCafes.length > 0) {
-        toast.success(`Found ${filteredCafes.length} cafes nearby! AI analyzing...`);
+        toast.success(`Found ${filteredCafes.length} cafes nearby!`);
       } else {
         toast.warning('No cafes found in this area. Try increasing the radius.');
       }
@@ -181,8 +222,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
         enhancementComplete = true;
         setIsAiEnhancing(false);
         setAiProgress({ current: nearbyCafes.length, total: nearbyCafes.length });
-        console.log('✅ AI enhancement complete - all categories updated');
-        toast.success('🎉 AI analysis complete! Filters are now fully accurate.');
+        console.log('✅ AI enhancement complete');
       }, 30000); // 30 seconds max for enhancement
       
     } catch (error: any) {
@@ -201,51 +241,82 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       setLoading(false);
       setIsAiEnhancing(false);
     }
-  };
+  }, [selectedCategories, openNow, minRating]);
 
-  const updateMarkers = (cafesToShow: Cafe[]) => {
+  const updateMarkers = useCallback((cafesToShow: Cafe[]) => {
     if (!mapInstanceRef.current) return;
 
     // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
-    // Add new markers
-    cafesToShow.forEach(cafe => {
+    // Add new markers with improved visuals
+    cafesToShow.forEach((cafe, index) => {
+      // Color based on status and rating
+      const baseColor = cafe.status === 'open' ? '#b8834a' : '#9CA3AF';
+      const isHighRated = cafe.rating >= 4.5;
+      const markerColor = isHighRated && cafe.status === 'open' ? '#D97706' : baseColor;
+      
+      // Create attractive marker SVG
+      const markerSvg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">
+          <defs>
+            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
+            </filter>
+          </defs>
+          <path d="M22 0C10 0 0 10 0 22c0 15 22 30 22 30s22-15 22-30C44 10 34 0 22 0z" fill="${markerColor}" filter="url(#shadow)"/>
+          <circle cx="22" cy="20" r="12" fill="white"/>
+          <text x="22" y="25" text-anchor="middle" font-size="14" fill="${markerColor}">☕</text>
+          ${isHighRated ? '<circle cx="34" cy="8" r="6" fill="#FBBF24"/><text x="34" y="11" text-anchor="middle" font-size="8" fill="white">★</text>' : ''}
+        </svg>
+      `;
+
       const marker = new google.maps.Marker({
         position: { lat: cafe.location.lat, lng: cafe.location.lng },
         map: mapInstanceRef.current,
-        title: cafe.name,
+        title: `${cafe.name} - ${cafe.rating.toFixed(1)}⭐`,
         icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="18" fill="${cafe.status === 'open' ? '#D97706' : '#6B7280'}" stroke="white" stroke-width="3"/>
-              <text x="20" y="26" text-anchor="middle" font-size="18" fill="white">☕</text>
-            </svg>
-          `),
-          scaledSize: new google.maps.Size(40, 40),
-          anchor: new google.maps.Point(20, 20)
-        }
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(markerSvg),
+          scaledSize: new google.maps.Size(44, 52),
+          anchor: new google.maps.Point(22, 52)
+        },
+        animation: google.maps.Animation.DROP,
+        zIndex: isHighRated ? 100 : 50 - index
       });
 
       marker.addListener('click', () => {
         handleMarkerClick(cafe);
-        mapInstanceRef.current?.panTo({ lat: cafe.location.lat, lng: cafe.location.lng });
+      });
+
+      // Add hover effect
+      marker.addListener('mouseover', () => {
+        marker.setAnimation(google.maps.Animation.BOUNCE);
+        setTimeout(() => marker.setAnimation(null), 700);
       });
 
       markersRef.current.push(marker);
     });
-  };
+  }, []);
 
   const handleMarkerClick = (cafe: Cafe) => {
     setSelectedMapCafe(cafe);
+    // Pan to the cafe and zoom in slightly
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: cafe.location.lat, lng: cafe.location.lng });
+      mapInstanceRef.current.setZoom(16);
+    }
   };
 
   const handleViewDetails = () => {
     if (selectedMapCafe) {
       setSelectedCafe(selectedMapCafe);
-      onNavigate('details');
     }
+  };
+
+  const handleGetDirections = (cafe: Cafe) => {
+    const url = getDirectionsUrl(cafe.location.address, cafe.location.lat, cafe.location.lng);
+    window.open(url, '_blank');
   };
 
   const applyFilters = () => {
@@ -303,14 +374,47 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       <div ref={mapRef} className="absolute inset-0 w-full h-full" />
 
       {/* Loading Overlay */}
-      {loading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--brand-primary)' }}></div>
-            <p className="text-muted-foreground">Loading cafes...</p>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {loading && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-gradient-to-br from-amber-50/95 via-orange-50/90 to-yellow-50/95 flex items-center justify-center z-50 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="text-center"
+            >
+              {/* Coffee cup with steam */}
+              <div className="relative w-20 h-20 mx-auto mb-4">
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="text-5xl"
+                  style={{ color: 'var(--brand-primary)' }}
+                >
+                  ☕
+                </motion.div>
+                {/* Steam lines */}
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1 h-5 rounded-full bg-gradient-to-t from-amber-400/60 to-transparent steam-line"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="font-medium" style={{ color: 'var(--brand-primary)' }}>Discovering cafes...</p>
+              <p className="text-sm text-muted-foreground mt-1">Finding the best spots near you</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search and Controls Overlay */}
       <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-10">
@@ -519,95 +623,213 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
         </motion.div>
 
         {/* Cafe List */}
-        {showList && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto"
-          >
-            <div className="p-4 space-y-2">
-              {cafes.map((cafe) => (
-                <button
-                  key={cafe.id}
-                  onClick={() => handleMarkerClick(cafe)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all hover:shadow-md ${
-                    selectedMapCafe?.id === cafe.id
-                      ? 'border-current shadow-sm'
-                      : 'border-gray-200'
-                  }`}
-                  style={
-                    selectedMapCafe?.id === cafe.id
-                      ? { borderColor: 'var(--brand-primary)' }
-                      : {}
-                  }
-                >
-                  <h4 className="mb-1 text-sm font-medium">{cafe.name}</h4>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>⭐ {cafe.rating.toFixed(1)}</span>
-                    <span>•</span>
-                    <span>{cafe.distance} mi</span>
-                    <Badge
-                      variant="secondary"
-                      className="text-xs"
-                      style={
-                        cafe.status === 'open'
-                          ? { backgroundColor: 'var(--status-open)', color: 'white' }
-                          : cafe.status === 'busy'
-                          ? { backgroundColor: 'var(--status-busy)', color: 'white' }
-                          : {}
-                      }
-                    >
-                      {cafe.status}
-                    </Badge>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {showList && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-4 bg-white rounded-xl shadow-lg overflow-hidden"
+            >
+              <ScrollArea className="max-h-80">
+                <div className="p-3 space-y-2">
+                  {cafes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No cafes found in this area</p>
+                      <p className="text-xs mt-1">Try increasing the radius</p>
+                    </div>
+                  ) : (
+                    cafes.map((cafe, index) => (
+                      <motion.div
+                        key={cafe.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className={`rounded-xl border transition-all overflow-hidden ${
+                          selectedMapCafe?.id === cafe.id
+                            ? 'border-2 shadow-md'
+                            : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
+                        }`}
+                        style={
+                          selectedMapCafe?.id === cafe.id
+                            ? { borderColor: 'var(--brand-primary)' }
+                            : {}
+                        }
+                      >
+                        <button
+                          onClick={() => handleMarkerClick(cafe)}
+                          className="w-full text-left p-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Thumbnail */}
+                            <div 
+                              className="w-14 h-14 rounded-lg bg-cover bg-center flex-shrink-0"
+                              style={{ backgroundImage: `url(${cafe.image})` }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-medium text-sm truncate">{cafe.name}</h4>
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0.5 flex-shrink-0"
+                                  style={
+                                    cafe.status === 'open'
+                                      ? { backgroundColor: 'var(--status-open)', color: 'white' }
+                                      : cafe.status === 'busy'
+                                      ? { backgroundColor: 'var(--status-busy)', color: 'white' }
+                                      : {}
+                                  }
+                                >
+                                  {cafe.status}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <span className="flex items-center gap-0.5">
+                                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                  {cafe.rating.toFixed(1)}
+                                </span>
+                                <span>•</span>
+                                <span>{cafe.distance} mi</span>
+                                <span>•</span>
+                                <span>{'$'.repeat(cafe.priceRange)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                        {/* Quick action buttons */}
+                        <div className="flex border-t border-gray-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGetDirections(cafe);
+                            }}
+                            className="flex-1 py-2 text-xs font-medium text-muted-foreground hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Navigation2 className="w-3 h-3" />
+                            Directions
+                          </button>
+                          <div className="w-px bg-gray-100" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCafe(cafe);
+                            }}
+                            className="flex-1 py-2 text-xs font-medium hover:bg-gray-50 transition-colors"
+                            style={{ color: 'var(--brand-primary)' }}
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Selected Cafe Card */}
-      {selectedMapCafe && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-10"
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-4">
-                <div
-                  className="w-20 h-20 rounded-lg bg-cover bg-center flex-shrink-0"
-                  style={{ backgroundImage: `url(${selectedMapCafe.image})` }}
-                />
-                <div className="flex-1 min-w-0">
-                  <h4 className="mb-1 truncate font-medium">{selectedMapCafe.name}</h4>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <span>⭐ {selectedMapCafe.rating.toFixed(1)}</span>
-                    <span>•</span>
-                    <span>{selectedMapCafe.distance} mi</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {selectedMapCafe.categories.slice(0, 2).map(category => (
-                      <Badge key={category} variant="secondary" className="text-xs">
-                        {category}
-                      </Badge>
-                    ))}
-                  </div>
+      <AnimatePresence>
+        {selectedMapCafe && (
+          <motion.div
+            initial={{ y: 100, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 100, opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[400px] z-10"
+          >
+            <Card className="shadow-xl border-0 overflow-hidden">
+              {/* Close button */}
+              <button 
+                onClick={() => setSelectedMapCafe(null)}
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+              
+              {/* Cafe image header */}
+              <div
+                className="h-32 bg-cover bg-center relative"
+                style={{ backgroundImage: `url(${selectedMapCafe.image})` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4">
+                  <Badge
+                    className="mb-2"
+                    style={
+                      selectedMapCafe.status === 'open'
+                        ? { backgroundColor: 'var(--status-open)', color: 'white' }
+                        : selectedMapCafe.status === 'busy'
+                        ? { backgroundColor: 'var(--status-busy)', color: 'white' }
+                        : { backgroundColor: '#6B7280', color: 'white' }
+                    }
+                  >
+                    <Clock className="w-3 h-3 mr-1" />
+                    {selectedMapCafe.status === 'open' ? 'Open Now' : selectedMapCafe.status === 'busy' ? 'Busy' : 'Closed'}
+                  </Badge>
+                  <h4 className="text-white font-semibold text-lg truncate drop-shadow-lg">{selectedMapCafe.name}</h4>
                 </div>
               </div>
-              <Button
-                onClick={handleViewDetails}
-                className="w-full mt-3"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                View Details
-              </Button>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+              
+              <CardContent className="p-4">
+                {/* Rating and distance */}
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold">{selectedMapCafe.rating.toFixed(1)}</span>
+                    <span className="text-muted-foreground text-sm">({selectedMapCafe.reviewCount})</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm">{selectedMapCafe.distance} mi away</span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {'$'.repeat(selectedMapCafe.priceRange)}
+                  </div>
+                </div>
+                
+                {/* Address */}
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                  {selectedMapCafe.location.address}
+                </p>
+                
+                {/* Categories */}
+                <div className="flex items-center gap-2 flex-wrap mb-4">
+                  {selectedMapCafe.categories.slice(0, 3).map(category => (
+                    <Badge key={category} variant="secondary" className="text-xs">
+                      {category}
+                    </Badge>
+                  ))}
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleGetDirections(selectedMapCafe)}
+                    variant="outline"
+                    className="flex-1 gap-2"
+                  >
+                    <Navigation2 className="w-4 h-4" />
+                    Directions
+                    <ExternalLink className="w-3 h-3 opacity-50" />
+                  </Button>
+                  <Button
+                    onClick={handleViewDetails}
+                    className="flex-1"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                  >
+                    View Details
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
