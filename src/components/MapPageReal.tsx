@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, SlidersHorizontal, List, Maximize2, ChevronDown, ChevronUp, X, Navigation2, MapPin, Star, Clock, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
@@ -59,28 +59,9 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
   const [minRating, setMinRating] = useState([0]);
   const [openNow, setOpenNow] = useState(false);
 
-  // Initialize map and load cafes
-  useEffect(() => {
-    initializeMap();
-  }, []);
-
-  // Update cafes and radius circle when radius changes
-  useEffect(() => {
-    if (userLocation) {
-      // Update the radius circle
-      if (radiusCircleRef.current) {
-        radiusCircleRef.current.setRadius(radiusMiles[0] * 1609.34);
-      }
-      
-      // Adjust zoom based on radius
-      if (mapInstanceRef.current) {
-        const zoomLevel = radiusMiles[0] <= 1 ? 15 : radiusMiles[0] <= 3 ? 14 : radiusMiles[0] <= 5 ? 13 : 12;
-        mapInstanceRef.current.setZoom(zoomLevel);
-      }
-      
-      loadCafes(userLocation, radiusMiles[0]);
-    }
-  }, [radiusMiles, loadCafes, userLocation]);
+  // Track if initial load has completed
+  const initialLoadRef = useRef(false);
+  const loadingRef = useRef(false);
 
   // Apply filters when filter settings change
   useEffect(() => {
@@ -88,6 +69,23 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       applyFilters();
     }
   }, [selectedCategories, priceRange, minRating, openNow, allCafes]);
+
+  // Update radius circle when radius changes (without reloading cafes)
+  useEffect(() => {
+    if (radiusCircleRef.current && userLocation) {
+      radiusCircleRef.current.setRadius(radiusMiles[0] * 1609.34);
+    }
+    
+    if (mapInstanceRef.current && userLocation) {
+      const zoomLevel = radiusMiles[0] <= 1 ? 15 : radiusMiles[0] <= 3 ? 14 : radiusMiles[0] <= 5 ? 13 : 12;
+      mapInstanceRef.current.setZoom(zoomLevel);
+    }
+  }, [radiusMiles, userLocation]);
+
+  // Initialize map on mount
+  useEffect(() => {
+    initializeMap();
+  }, []);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -156,94 +154,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
     }
   };
 
-  const loadCafes = useCallback(async (location: { lat: number; lng: number }, radius: number) => {
-    setLoading(true);
-    setIsAiEnhancing(true);
-    
-    try {
-      const radiusMeters = radius * 1609.34; // Convert miles to meters
-      console.log(`🔍 Loading cafes within ${radius} miles (${radiusMeters}m)...`);
-      
-      let enhancementComplete = false;
-      let enhancedCount = 0;
-      
-      // Progressive loading: update UI as cafes get enhanced
-      const nearbyCafes = await GoogleMapsService.searchNearbyCafes(
-        location, 
-        radiusMeters,
-        (updatedCafes) => {
-          // Apply current filters and update state as AI processes each batch
-          const filteredCafes = CafeService.filterCafes(updatedCafes, {
-            categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-            openNow: openNow || undefined,
-            minRating: minRating[0] > 0 ? minRating[0] : undefined,
-            maxDistance: radius
-          });
-          setCafes([...filteredCafes]);
-          updateMarkers(filteredCafes);
-          
-          if (!enhancementComplete) {
-            enhancedCount += 5; // Assume 5 per batch
-            setAiProgress({ 
-              current: Math.min(enhancedCount, updatedCafes.length), 
-              total: updatedCafes.length 
-            });
-            console.log(`🔄 AI enhanced ${enhancedCount}/${updatedCafes.length} cafés - filters updating...`);
-          }
-        }
-      );
-      
-      console.log(`📍 Received ${nearbyCafes.length} cafes from Places API`);
-      
-      // Apply current filters
-      const filteredCafes = CafeService.filterCafes(nearbyCafes, {
-        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-        openNow: openNow || undefined,
-        minRating: minRating[0] > 0 ? minRating[0] : undefined,
-        maxDistance: radius
-      });
-
-      console.log(`✅ After filtering: ${filteredCafes.length} cafes`);
-      
-      setAllCafes(nearbyCafes); // Store all cafes
-      setCafes(filteredCafes);
-      updateMarkers(filteredCafes);
-      setAiProgress({ current: 0, total: nearbyCafes.length });
-      setLoading(false); // Stop loading immediately, AI continues in background
-      
-      if (filteredCafes.length > 0) {
-        toast.success(`Found ${filteredCafes.length} cafes nearby!`);
-      } else {
-        toast.warning('No cafes found in this area. Try increasing the radius.');
-      }
-      
-      // Wait a bit then mark enhancement as complete
-      setTimeout(() => {
-        enhancementComplete = true;
-        setIsAiEnhancing(false);
-        setAiProgress({ current: nearbyCafes.length, total: nearbyCafes.length });
-        console.log('✅ AI enhancement complete');
-      }, 30000); // 30 seconds max for enhancement
-      
-    } catch (error: any) {
-      console.error('❌ Error loading cafes:', error);
-      
-      let errorMessage = 'Failed to load cafes.';
-      
-      if (error.message.includes('REQUEST_DENIED')) {
-        errorMessage = 'Places API access denied. Please enable billing in Google Cloud.';
-      } else if (error.message.includes('billing')) {
-        errorMessage = 'Billing not enabled. Go to Google Cloud Console → Billing.';
-      }
-      
-      toast.error(errorMessage);
-      setCafes([]);
-      setLoading(false);
-      setIsAiEnhancing(false);
-    }
-  }, [selectedCategories, openNow, minRating]);
-
-  const updateMarkers = useCallback((cafesToShow: Cafe[]) => {
+  const updateMarkers = (cafesToShow: Cafe[]) => {
     if (!mapInstanceRef.current) return;
 
     // Clear existing markers
@@ -257,15 +168,16 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
       const isHighRated = cafe.rating >= 4.5;
       const markerColor = isHighRated && cafe.status === 'open' ? '#D97706' : baseColor;
       
-      // Create attractive marker SVG
+      // Create attractive marker SVG with unique filter ID
+      const filterId = `shadow-${cafe.id}`;
       const markerSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">
           <defs>
-            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%">
               <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
             </filter>
           </defs>
-          <path d="M22 0C10 0 0 10 0 22c0 15 22 30 22 30s22-15 22-30C44 10 34 0 22 0z" fill="${markerColor}" filter="url(#shadow)"/>
+          <path d="M22 0C10 0 0 10 0 22c0 15 22 30 22 30s22-15 22-30C44 10 34 0 22 0z" fill="${markerColor}" filter="url(#${filterId})"/>
           <circle cx="22" cy="20" r="12" fill="white"/>
           <text x="22" y="25" text-anchor="middle" font-size="14" fill="${markerColor}">☕</text>
           ${isHighRated ? '<circle cx="34" cy="8" r="6" fill="#FBBF24"/><text x="34" y="11" text-anchor="middle" font-size="8" fill="white">★</text>' : ''}
@@ -281,27 +193,107 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
           scaledSize: new google.maps.Size(44, 52),
           anchor: new google.maps.Point(22, 52)
         },
-        animation: google.maps.Animation.DROP,
         zIndex: isHighRated ? 100 : 50 - index
       });
 
       marker.addListener('click', () => {
-        handleMarkerClick(cafe);
-      });
-
-      // Add hover effect
-      marker.addListener('mouseover', () => {
-        marker.setAnimation(google.maps.Animation.BOUNCE);
-        setTimeout(() => marker.setAnimation(null), 700);
+        setSelectedMapCafe(cafe);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo({ lat: cafe.location.lat, lng: cafe.location.lng });
+          mapInstanceRef.current.setZoom(16);
+        }
       });
 
       markersRef.current.push(marker);
     });
-  }, []);
+  };
 
-  const handleMarkerClick = (cafe: Cafe) => {
+  const loadCafes = async (location: { lat: number; lng: number }, radius: number) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoading(true);
+    setIsAiEnhancing(true);
+    
+    try {
+      const radiusMeters = radius * 1609.34; // Convert miles to meters
+      console.log(`🔍 Loading cafes within ${radius} miles (${radiusMeters}m)...`);
+      
+      // Progressive loading: update UI as cafes get enhanced
+      const nearbyCafes = await GoogleMapsService.searchNearbyCafes(
+        location, 
+        radiusMeters,
+        (updatedCafes) => {
+          // Apply current filters and update state as AI processes each batch
+          const currentCategories = selectedCategories;
+          const currentOpenNow = openNow;
+          const currentMinRating = minRating[0];
+          
+          const filteredCafes = CafeService.filterCafes(updatedCafes, {
+            categories: currentCategories.length > 0 ? currentCategories : undefined,
+            openNow: currentOpenNow || undefined,
+            minRating: currentMinRating > 0 ? currentMinRating : undefined,
+            maxDistance: radius
+          });
+          setCafes([...filteredCafes]);
+          setAllCafes([...updatedCafes]);
+          updateMarkers(filteredCafes);
+          setAiProgress({ current: updatedCafes.length, total: updatedCafes.length });
+        }
+      );
+      
+      console.log(`📍 Received ${nearbyCafes.length} cafes from Places API`);
+      
+      // Apply current filters
+      const filteredCafes = CafeService.filterCafes(nearbyCafes, {
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        openNow: openNow || undefined,
+        minRating: minRating[0] > 0 ? minRating[0] : undefined,
+        maxDistance: radius
+      });
+
+      console.log(`✅ After filtering: ${filteredCafes.length} cafes`);
+      
+      setAllCafes(nearbyCafes);
+      setCafes(filteredCafes);
+      updateMarkers(filteredCafes);
+      setAiProgress({ current: nearbyCafes.length, total: nearbyCafes.length });
+      setLoading(false);
+      loadingRef.current = false;
+      
+      if (nearbyCafes.length > 0) {
+        toast.success(`Found ${nearbyCafes.length} cafes nearby!`);
+      } else {
+        toast.warning('No cafes found in this area. Try increasing the radius.');
+      }
+      
+      // Mark enhancement as complete after a delay
+      setTimeout(() => {
+        setIsAiEnhancing(false);
+      }, 5000);
+      
+    } catch (error: any) {
+      console.error('❌ Error loading cafes:', error);
+      
+      let errorMessage = 'Failed to load cafes.';
+      
+      if (error.message?.includes('REQUEST_DENIED')) {
+        errorMessage = 'Places API access denied. Please enable billing in Google Cloud.';
+      } else if (error.message?.includes('billing')) {
+        errorMessage = 'Billing not enabled. Go to Google Cloud Console → Billing.';
+      } else if (error.message?.includes('API key')) {
+        errorMessage = 'Google Maps API key not configured.';
+      }
+      
+      toast.error(errorMessage);
+      setCafes([]);
+      setLoading(false);
+      loadingRef.current = false;
+      setIsAiEnhancing(false);
+    }
+  };
+
+  const handleCafeSelect = (cafe: Cafe) => {
     setSelectedMapCafe(cafe);
-    // Pan to the cafe and zoom in slightly
     if (mapInstanceRef.current) {
       mapInstanceRef.current.panTo({ lat: cafe.location.lat, lng: cafe.location.lng });
       mapInstanceRef.current.setZoom(16);
@@ -570,7 +562,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span>Radius: {radiusMiles[0]}mi</span>
+              <span>Radius: {radiusMiles[0].toFixed(1)} mi</span>
               <button
                 onClick={() => setShowList(!showList)}
                 className="flex items-center gap-1 text-sm hover:underline"
@@ -580,14 +572,24 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
                 {showList ? 'Hide List' : 'Show List'}
               </button>
             </div>
-            <Slider
-              value={radiusMiles}
-              onValueChange={setRadiusMiles}
-              max={10}
-              min={0.5}
-              step={0.1}
-              className="w-full"
-            />
+            <div className="flex items-center gap-2">
+              <Slider
+                value={radiusMiles}
+                onValueChange={setRadiusMiles}
+                max={10}
+                min={0.5}
+                step={0.1}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                onClick={() => userLocation && loadCafes(userLocation, radiusMiles[0])}
+                disabled={loading || !userLocation}
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                <Search className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -659,7 +661,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
                         }
                       >
                         <button
-                          onClick={() => handleMarkerClick(cafe)}
+                          onClick={() => handleCafeSelect(cafe)}
                           className="w-full text-left p-3"
                         >
                           <div className="flex items-start gap-3">
