@@ -22,6 +22,7 @@ interface AppContextType {
   selectedCafe: Cafe | null;
   setSelectedCafe: (cafe: Cafe | null) => void;
   friendRequestCount: number;
+  unreadMessageCount: number;
   navigationHistory: string[];
   addToHistory: (page: string) => void;
   goBack: () => string | null;
@@ -45,6 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [navigationHistory, setNavigationHistory] = useState<string[]>(['home']);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   
   const friendRequestCount = friends.filter(f => f.status === 'request').length;
 
@@ -117,6 +119,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log('🔌 Cleaning up friendship listener');
       unsubscribe();
     };
+  }, [user?.id]);
+
+  // Set up real-time listener for unread messages
+  useEffect(() => {
+    if (!user?.id) {
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+      messagesRef, 
+      where('receiverId', '==', user.id),
+      where('read', '==', false)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadMessageCount(snapshot.docs.length);
+    }, (error) => {
+      console.error('Error listening to unread messages:', error);
+    });
+
+    return () => unsubscribe();
   }, [user?.id]);
 
   // Listen to Firebase auth state changes
@@ -417,6 +442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedCafe,
         setSelectedCafe,
         friendRequestCount,
+        unreadMessageCount,
         navigationHistory,
         addToHistory,
         goBack,

@@ -19,7 +19,7 @@ interface NavigationProps {
 }
 
 export function Navigation({ currentPage, onNavigate }: NavigationProps) {
-  const { language, setLanguage, friendRequestCount, setIsAuthenticated, setUser } = useApp();
+  const { language, setLanguage, friendRequestCount, unreadMessageCount, setIsAuthenticated, setUser } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[language];
 
@@ -41,7 +41,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
     { id: 'explore', label: t.explore, icon: Compass },
     { id: 'map', label: t.map, icon: MapPin },
     { id: 'social', label: t.social, icon: Users, badge: friendRequestCount },
-    { id: 'messages', label: 'Messages', icon: MessageSquare },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessageCount },
     { id: 'collections', label: t.collections, icon: Heart },
     { id: 'profile', label: t.profile, icon: User },
     { id: 'settings', label: t.settings, icon: Settings },
