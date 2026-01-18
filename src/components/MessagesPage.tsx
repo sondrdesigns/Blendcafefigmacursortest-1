@@ -475,17 +475,20 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-base flex-1 truncate" style={{ color: '#78523a' }}>
-                                {conv.participant.username || (conv.participant as any).displayName || (conv.participant as any).name || conv.participant.id?.slice(0, 8) || 'User'}
+                              <span className="font-bold text-base flex-1" style={{ color: '#5c3d2e' }}>
+                                {(conv.participant.username && conv.participant.username.trim()) || 
+                                 (conv.participant as any).displayName || 
+                                 (conv.participant as any).name || 
+                                 (conv.participant.id ? conv.participant.id.slice(0, 8) : 'User')}
                               </span>
                               {lastMsg && (
-                                <span className="text-xs text-gray-400 flex-shrink-0">
+                                <span className="text-xs flex-shrink-0" style={{ color: '#8b7355' }}>
                                   {formatTime(lastMsg.timestamp)}
                                 </span>
                               )}
                             </div>
                             {lastMsg && (
-                              <p className={`text-sm truncate mt-0.5 ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
+                              <p className="text-sm mt-0.5" style={{ color: unread > 0 ? '#5c3d2e' : '#8b7355', fontWeight: unread > 0 ? 500 : 400 }}>
                                 {unread > 0 && lastMsg.senderId !== MY_USER_ID 
                                   ? 'New Message' 
                                   : lastMsg.senderId === MY_USER_ID 
