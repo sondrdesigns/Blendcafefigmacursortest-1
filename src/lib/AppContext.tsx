@@ -55,26 +55,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    console.log('👥 Setting up friendship listener for user:', user.id);
+
     const friendsRef = collection(db, 'friendships');
     const q = query(friendsRef, where('users', 'array-contains', user.id));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log(`📬 Received ${snapshot.docs.length} friendship documents`);
+      
       const loadedFriends: Friend[] = [];
       
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
         const friendUserId = data.users.find((id: string) => id !== user.id);
+        
         if (friendUserId) {
           try {
             const friendDoc = await getDoc(doc(db, 'users', friendUserId));
             if (friendDoc.exists()) {
               const friendData = friendDoc.data();
+              
+              // Determine the status from the current user's perspective
+              let status: 'friends' | 'pending' | 'request';
+              if (data.status === 'accepted') {
+                status = 'friends';
+              } else if (data.requestedBy === user.id) {
+                // Current user sent the request - it's pending from our view
+                status = 'pending';
+              } else {
+                // Someone else sent the request - it's an incoming request
+                status = 'request';
+              }
+              
+              console.log(`👤 Friend: ${friendData.username}, Status: ${status} (requestedBy: ${data.requestedBy}, dbStatus: ${data.status})`);
+              
               loadedFriends.push({
                 id: friendUserId,
                 username: friendData.username || 'User',
                 avatar: friendData.avatar || '/default-avatar.svg',
-                status: data.status === 'accepted' ? 'friends' : 
-                        data.requestedBy === user.id ? 'pending' : 'request',
+                status: status,
                 mutualFriends: 0,
                 reviewCount: friendData.reviewCount || 0,
               });
@@ -84,12 +103,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+      
+      console.log(`✅ Loaded ${loadedFriends.length} friends/requests:`, 
+        loadedFriends.map(f => `${f.username}(${f.status})`).join(', ')
+      );
+      
       setFriends(loadedFriends);
     }, (error) => {
-      console.error('Error listening to friendships:', error);
+      console.error('❌ Error listening to friendships:', error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log('🔌 Cleaning up friendship listener');
+      unsubscribe();
+    };
   }, [user?.id]);
 
   // Listen to Firebase auth state changes
@@ -193,14 +220,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
       
+      // Get IDs of users we already have relationships with
+      const existingRelationshipIds = new Set(friends.map(f => f.id));
+      
       const results: Friend[] = [];
       snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
         const userId = docSnap.id;
         
-        // Don't include self or existing friends
+        // Don't include self
         if (userId === user.id) return;
-        if (friends.some(f => f.id === userId)) return;
+        
+        // Don't include users we already have a relationship with (friends, pending, request)
+        if (existingRelationshipIds.has(userId)) return;
         
         // Match by username (case-insensitive)
         if (data.username?.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -208,7 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: userId,
             username: data.username || 'User',
             avatar: data.avatar || '/default-avatar.svg',
-            status: 'friends', // Will be shown as "Add Friend" in UI
+            status: 'none' as any, // No relationship yet - will show "Add Friend"
             mutualFriends: 0,
             reviewCount: data.reviewCount || 0,
           });
@@ -224,10 +256,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Send friend request
   const sendFriendRequest = async (friendId: string) => {
-    if (!user) return;
+    if (!user) {
+      console.error('Cannot send friend request: No user logged in');
+      return;
+    }
     
     try {
+      console.log(`📤 Sending friend request from ${user.id} to ${friendId}`);
+      
+      // Check if friendship already exists
       const friendshipId = [user.id, friendId].sort().join('_');
+      const existingFriendship = await getDoc(doc(db, 'friendships', friendshipId));
+      
+      if (existingFriendship.exists()) {
+        console.log('⚠️ Friendship already exists:', existingFriendship.data());
+        return;
+      }
+      
+      // Create friendship document
       await setDoc(doc(db, 'friendships', friendshipId), {
         users: [user.id, friendId],
         status: 'pending',
@@ -235,34 +281,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createdAt: new Date(),
       });
       
-      // Add to local state as pending
+      console.log('✅ Friend request sent successfully');
+      
+      // Optimistically add to local state as pending
+      // The real-time listener will also update this, but this makes the UI more responsive
       const friendDoc = await getDoc(doc(db, 'users', friendId));
       if (friendDoc.exists()) {
         const friendData = friendDoc.data();
-        setFriends(prev => [...prev, {
+        const newFriend: Friend = {
           id: friendId,
           username: friendData.username || 'User',
           avatar: friendData.avatar || '/default-avatar.svg',
           status: 'pending',
           mutualFriends: 0,
           reviewCount: friendData.reviewCount || 0,
-        }]);
+        };
+        
+        // Only add if not already in friends list
+        setFriends(prev => {
+          if (prev.some(f => f.id === friendId)) {
+            return prev;
+          }
+          return [...prev, newFriend];
+        });
       }
     } catch (error) {
-      console.error('Error sending friend request:', error);
+      console.error('❌ Error sending friend request:', error);
+      throw error;
     }
   };
 
   const acceptFriendRequest = async (friendId: string) => {
-    if (!user) return;
+    if (!user) {
+      console.error('Cannot accept friend request: No user logged in');
+      return;
+    }
     
     try {
+      console.log(`✅ Accepting friend request from ${friendId}`);
+      
       const friendshipId = [user.id, friendId].sort().join('_');
       await setDoc(doc(db, 'friendships', friendshipId), {
         users: [user.id, friendId],
         status: 'accepted',
         acceptedAt: new Date(),
       }, { merge: true });
+      
+      console.log('📝 Updated friendship document to accepted');
       
       // Update friend counts for both users
       const userRef = doc(db, 'users', user.id);
@@ -284,22 +349,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
       
-      // The real-time listener will update the friends list
+      console.log('✅ Friend request accepted, friend counts updated');
+      // The real-time listener will update the friends list automatically
     } catch (error) {
-      console.error('Error accepting friend request:', error);
+      console.error('❌ Error accepting friend request:', error);
+      throw error;
     }
   };
 
   const declineFriendRequest = async (friendId: string) => {
-    if (!user) return;
+    if (!user) {
+      console.error('Cannot decline friend request: No user logged in');
+      return;
+    }
     
     try {
+      console.log(`❌ Declining friend request from ${friendId}`);
+      
       const friendshipId = [user.id, friendId].sort().join('_');
       await deleteDoc(doc(db, 'friendships', friendshipId));
       
+      console.log('🗑️ Deleted friendship document');
+      
+      // Optimistically remove from local state
       setFriends(prevFriends => prevFriends.filter(friend => friend.id !== friendId));
     } catch (error) {
-      console.error('Error declining friend request:', error);
+      console.error('❌ Error declining friend request:', error);
+      throw error;
     }
   };
 

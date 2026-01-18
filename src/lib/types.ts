@@ -73,7 +73,7 @@ export interface Friend {
   id: string;
   username: string;
   avatar: string;
-  status: 'friends' | 'pending' | 'request' | 'accepted';
+  status: 'friends' | 'pending' | 'request' | 'accepted' | 'none';
   mutualFriends: number;
   reviewCount: number;
   visibility?: 'public' | 'private';

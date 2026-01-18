@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Activity, Check, X, Search, MessageCircle, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Activity, Check, X, Search, MessageCircle, Loader2, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
 import { Friend } from '../lib/types';
+import { toast } from 'sonner';
 
 interface SocialPageProps {
   onNavigate: (page: string, userId?: string) => void;
@@ -23,7 +24,7 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
+  const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
 
   const friends = allFriends.filter(f => f.status === 'friends' || f.status === 'accepted');
   const requests = allFriends.filter(f => f.status === 'request');
@@ -37,17 +38,52 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
     setIsSearching(true);
     try {
       const results = await searchUsers(searchQuery);
+      console.log('🔍 Search results:', results);
       setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
+      toast.error('Failed to search users');
     }
     setIsSearching(false);
   };
 
   const handleSendRequest = async (userId: string) => {
-    await sendFriendRequest(userId);
-    setSentRequests(prev => new Set(prev).add(userId));
-    setSearchResults(prev => prev.filter(u => u.id !== userId));
+    setSendingRequests(prev => new Set(prev).add(userId));
+    try {
+      await sendFriendRequest(userId);
+      toast.success('Friend request sent!');
+      // Remove from search results since they're now in pending
+      setSearchResults(prev => prev.filter(u => u.id !== userId));
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      toast.error('Failed to send friend request');
+    } finally {
+      setSendingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleAcceptRequest = async (friendId: string) => {
+    try {
+      await acceptFriendRequest(friendId);
+      toast.success('Friend request accepted!');
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast.error('Failed to accept friend request');
+    }
+  };
+
+  const handleDeclineRequest = async (friendId: string) => {
+    try {
+      await declineFriendRequest(friendId);
+      toast.success('Friend request declined');
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+      toast.error('Failed to decline friend request');
+    }
   };
 
   return (
@@ -101,9 +137,17 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                     <Button 
                       size="sm" 
                       onClick={() => handleSendRequest(result.id)}
-                      disabled={sentRequests.has(result.id)}
+                      disabled={sendingRequests.has(result.id)}
+                      style={{ backgroundColor: 'var(--brand-primary)' }}
                     >
-                      {sentRequests.has(result.id) ? t.requestSent : t.addFriend}
+                      {sendingRequests.has(result.id) ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4 mr-1" />
+                          {t.addFriend}
+                        </>
+                      )}
                     </Button>
                   </div>
                 ))}
@@ -217,11 +261,11 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                             </div>
                           </div>
                           <div className="flex gap-2 w-full sm:w-auto">
-                            <Button size="sm" className="flex-1 sm:flex-initial" style={{ backgroundColor: 'var(--brand-primary)' }} onClick={() => acceptFriendRequest(friend.id)}>
+                            <Button size="sm" className="flex-1 sm:flex-initial" style={{ backgroundColor: 'var(--brand-primary)' }} onClick={() => handleAcceptRequest(friend.id)}>
                               <Check className="w-4 h-4 sm:mr-1" />
                               <span className="hidden sm:inline">Accept</span>
                             </Button>
-                            <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => declineFriendRequest(friend.id)}>
+                            <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => handleDeclineRequest(friend.id)}>
                               <X className="w-4 h-4 sm:mr-1" />
                               <span className="hidden sm:inline">Decline</span>
                             </Button>
@@ -242,7 +286,10 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
 
               {pending.length > 0 && (
                 <>
-                  <h3 className="mt-6 mb-3">Pending Requests</h3>
+                  <h3 className="mt-6 mb-3 text-muted-foreground flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Sent Requests ({pending.length})
+                  </h3>
                   {pending.map((friend, index) => (
                     <motion.div
                       key={friend.id}
@@ -250,7 +297,7 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                     >
-                      <Card>
+                      <Card className="border-dashed border-amber-200 bg-amber-50/50">
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                             <Avatar className="w-12 h-12">
@@ -260,10 +307,13 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
                             <div className="flex-1 min-w-0">
                               <h4 className="mb-1 truncate">{friend.username}</h4>
                               <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                                <span>{friend.mutualFriends} mutual</span>
+                                <span>{friend.reviewCount} reviews</span>
                               </div>
                             </div>
-                            <Badge variant="secondary" className="text-xs">Pending</Badge>
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Pending
+                            </Badge>
                           </div>
                         </CardContent>
                       </Card>
