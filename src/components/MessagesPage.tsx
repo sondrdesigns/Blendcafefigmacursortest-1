@@ -475,20 +475,20 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-base flex-1" style={{ color: '#5c3d2e' }}>
+                              <span className="font-bold text-base flex-1" style={{ color: '#4a3728' }}>
                                 {(conv.participant.username && conv.participant.username.trim()) || 
                                  (conv.participant as any).displayName || 
                                  (conv.participant as any).name || 
                                  (conv.participant.id ? conv.participant.id.slice(0, 8) : 'User')}
                               </span>
                               {lastMsg && (
-                                <span className="text-xs flex-shrink-0" style={{ color: '#8b7355' }}>
+                                <span className="text-xs flex-shrink-0" style={{ color: '#6b5344' }}>
                                   {formatTime(lastMsg.timestamp)}
                                 </span>
                               )}
                             </div>
                             {lastMsg && (
-                              <p className="text-sm mt-0.5" style={{ color: unread > 0 ? '#5c3d2e' : '#8b7355', fontWeight: unread > 0 ? 500 : 400 }}>
+                              <p className="text-sm mt-0.5" style={{ color: unread > 0 ? '#4a3728' : '#7a6455', fontWeight: unread > 0 ? 600 : 400 }}>
                                 {unread > 0 && lastMsg.senderId !== MY_USER_ID 
                                   ? 'New Message' 
                                   : lastMsg.senderId === MY_USER_ID 
@@ -497,6 +497,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                               </p>
                             )}
                           </div>
+                          {unread > 0 && (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-xs" style={{ backgroundColor: '#a67c52', color: '#ffffff' }}>
+                              {unread}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -572,14 +577,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`font-semibold text-base flex-1 truncate ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
+                        <span className="font-bold text-base flex-1 truncate text-amber-100">
                           {conv.participant.username || (conv.participant as any).displayName || (conv.participant as any).name || conv.participant.id?.slice(0, 8) || 'User'}
                         </span>
                         {unread > 0 && (
                           <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse flex-shrink-0" />
                         )}
                         {lastMsg && (
-                          <span className="text-xs text-amber-300 flex-shrink-0">
+                          <span className="text-xs text-amber-200 flex-shrink-0">
                             {formatTime(lastMsg.timestamp)}
                           </span>
                         )}
@@ -595,7 +600,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                       )}
                     </div>
                     {unread > 0 && (
-                      <span className="w-6 h-6 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                      <span className="w-6 h-6 bg-amber-100 text-amber-900 text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
                         {unread}
                       </span>
                     )}
