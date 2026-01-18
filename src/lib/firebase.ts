@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,6 +20,21 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Initialize Firebase Cloud Messaging (only in supported browsers)
+let messaging: ReturnType<typeof getMessaging> | null = null;
+
+export const initializeMessaging = async () => {
+  const supported = await isSupported();
+  if (supported) {
+    messaging = getMessaging(app);
+  }
+  return messaging;
+};
+
+export const getMessagingInstance = () => messaging;
+
+export { getToken, onMessage };
 
 export default app;
 
