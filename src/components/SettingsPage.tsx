@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Lock, Globe, Camera, MapPin, FileText, Smartphone } from 'lucide-react';
+import { User, Bell, Lock, Globe, Camera, MapPin, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations } from '../lib/mockData';
@@ -53,7 +53,7 @@ interface SettingsPageProps {
 const DEFAULT_AVATAR = '/default-avatar.svg';
 
 export function SettingsPage({ onNavigate }: SettingsPageProps) {
-  const { language, setLanguage, user, setUser, setIsAuthenticated, notificationsEnabled, enableNotifications } = useApp();
+  const { language, setLanguage, user, setUser, setIsAuthenticated } = useApp();
   const t = translations[language];
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

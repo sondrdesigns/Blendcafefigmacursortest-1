@@ -3,7 +3,6 @@ import { BarChart3, Coffee } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './lib/AppContext';
 import { Navigation } from './components/Navigation';
-import { NotificationPrompt } from './components/NotificationPrompt';
 import { Toaster } from './components/ui/sonner';
 import { Button } from './components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip';
@@ -101,7 +100,6 @@ function AppContent() {
   const [profileUserId, setProfileUserId] = useState<string | undefined>(undefined);
   const [messagesUserId, setMessagesUserId] = useState<string | undefined>(undefined);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [showNotificationPrompt, setShowNotificationPrompt] = useState(true);
   const { isAuthenticated, selectedCafe, setSelectedCafe, user, addToHistory, goBack, loading } = useApp();
 
   const handleNavigate = (page: string, userId?: string) => {
@@ -159,11 +157,6 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation currentPage={currentPage} onNavigate={handleNavigate} />
-      
-      {/* Notification Permission Prompt */}
-      {showNotificationPrompt && (
-        <NotificationPrompt onClose={() => setShowNotificationPrompt(false)} />
-      )}
       
       <main>
         <Suspense fallback={<CafeLoader />}>

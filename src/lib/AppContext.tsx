@@ -5,7 +5,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { AuthService } from '../services/authService';
 import { CafeService } from '../services/cafeService';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { notificationService } from '../services/notificationService';
 
 interface AppContextType {
   language: Language;
@@ -33,8 +32,6 @@ interface AppContextType {
   sendFriendRequest: (userId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<Friend[]>;
   loading: boolean;
-  notificationsEnabled: boolean;
-  enableNotifications: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -50,41 +47,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   
   const friendRequestCount = friends.filter(f => f.status === 'request').length;
-
-  // Initialize notifications when user is authenticated
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const initNotifications = async () => {
-      const initialized = await notificationService.initialize();
-      if (initialized) {
-        // Check if user already has notifications enabled
-        const permission = notificationService.getPermissionStatus();
-        if (permission === 'granted') {
-          const token = await notificationService.getAndSaveToken(user.id);
-          setNotificationsEnabled(!!token);
-        }
-      }
-    };
-
-    initNotifications();
-  }, [user?.id]);
-
-  // Enable notifications manually
-  const enableNotifications = async (): Promise<boolean> => {
-    if (!user?.id) return false;
-
-    const initialized = await notificationService.initialize();
-    if (!initialized) return false;
-
-    const token = await notificationService.getAndSaveToken(user.id);
-    const success = !!token;
-    setNotificationsEnabled(success);
-    return success;
-  };
 
   // Set up real-time listener for friendships
   useEffect(() => {
@@ -488,8 +452,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sendFriendRequest,
         searchUsers,
         loading,
-        notificationsEnabled,
-        enableNotifications,
       }}
     >
       {children}
