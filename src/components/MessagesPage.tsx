@@ -506,46 +506,46 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                   <motion.button
                     key={conv.id}
                     onClick={() => setSelectedConversation(conv)}
-                    whileHover={{ scale: 1.02, backgroundColor: isSelected ? 'rgb(255 251 235)' : 'rgb(249 250 251)' }}
+                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    className={`w-full p-3 mb-1 rounded-xl flex items-center gap-3 text-left ${
-                      isSelected ? 'bg-amber-50 border-2 border-amber-300 shadow-sm' : 'bg-white border border-gray-100 hover:shadow-md'
+                    className={`w-full p-4 mb-2 rounded-2xl flex items-center gap-3 text-left shadow-md transition-shadow hover:shadow-lg ${
+                      isSelected ? 'bg-amber-700 border-2 border-amber-500' : 'bg-amber-800 border border-amber-700'
                     }`}
                   >
                     <div className="relative flex-shrink-0">
-                      <Avatar className="w-12 h-12 border-2 border-white shadow-sm">
+                      <Avatar className="w-12 h-12 border-2 border-amber-600 shadow-sm">
                         <AvatarImage src={conv.participant.avatar} />
-                        <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
+                        <AvatarFallback className="bg-amber-200 text-amber-900 font-semibold">
                           {conv.participant.username[0].toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-amber-800 rounded-full" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`font-medium truncate ${unread > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                          <span className={`font-medium truncate ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
                             {conv.participant.username}
                           </span>
                           {unread > 0 && (
-                            <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
+                            <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" />
                           )}
                         </div>
                         {lastMsg && (
-                          <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+                          <span className="text-xs text-amber-300 ml-2 flex-shrink-0">
                             {formatTime(lastMsg.timestamp)}
                           </span>
                         )}
                       </div>
                       {lastMsg && (
-                        <p className={`text-sm truncate ${unread > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
+                        <p className={`text-sm truncate ${unread > 0 ? 'text-amber-100 font-medium' : 'text-amber-300'}`}>
                           {lastMsg.senderId === MY_USER_ID && 'You: '}{lastMsg.text}
                         </p>
                       )}
                     </div>
                     {unread > 0 && (
-                      <span className="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                      <span className="w-6 h-6 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
                         {unread}
                       </span>
                     )}
@@ -561,15 +561,15 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           {selectedConversation ? (
             <>
               {/* Desktop Chat Header */}
-              <div className="flex-none px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between shadow-sm">
+              <div className="flex-none px-6 py-6 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm min-h-[80px]">
                 <div className="flex items-center gap-4">
-                  <Avatar className="w-11 h-11 border-2 border-amber-200 flex-shrink-0 shadow-sm">
+                  <Avatar className="w-12 h-12 border-2 border-amber-300 flex-shrink-0 shadow-md">
                     <AvatarImage src={selectedConversation.participant.avatar} />
-                    <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
+                    <AvatarFallback className="bg-amber-100 text-amber-800 font-bold text-lg">
                       {selectedConversation.participant.username[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <h3 className="font-semibold text-gray-900 text-lg">{selectedConversation.participant.username}</h3>
+                  <h3 className="font-bold text-gray-900 text-xl">{selectedConversation.participant.username}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {isSelectMode && selectedMessages.size > 0 && (
