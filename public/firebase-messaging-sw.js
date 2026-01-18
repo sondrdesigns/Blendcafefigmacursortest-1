@@ -4,16 +4,15 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
-// Firebase config - these are public values (not secrets)
-// They will be replaced at build time or you can set them manually
-// Get these from Firebase Console -> Project Settings -> Your apps
+// Firebase config - these are public identifiers (not secrets)
+// Security is handled by Firestore rules and authentication
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyChp8CBcxlkzb9NO2UBeIoAQkYh-fSMp1Q",
+  authDomain: "blend-a1644.firebaseapp.com",
+  projectId: "blend-a1644",
+  storageBucket: "blend-a1644.firebasestorage.app",
+  messagingSenderId: "549377893928",
+  appId: "1:549377893928:web:08aa41ea3bc3605675371d"
 };
 
 // Initialize Firebase
