@@ -30,6 +30,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [sendingMessage, setSendingMessage] = useState<string | null>(null);
+  const [recentlySentIds, setRecentlySentIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Build conversations from friends list
@@ -122,20 +124,41 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   }, [initialConversationId, conversations.length]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || !MY_USER_ID) return;
+    if (!newMessage.trim() || !selectedConversation || !MY_USER_ID || sendingMessage) return;
     const messageText = newMessage.trim();
+    
+    // Start sending animation
+    setSendingMessage(messageText);
     setNewMessage('');
+    
+    // Small delay for the animation to start
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
-      await addDoc(collection(db, 'messages'), {
+      const docRef = await addDoc(collection(db, 'messages'), {
         senderId: MY_USER_ID,
         receiverId: selectedConversation.participant.id,
         text: messageText,
         timestamp: Timestamp.now(),
         read: false,
       });
+      
+      // Track this as recently sent for animation
+      setRecentlySentIds(prev => new Set(prev).add(docRef.id));
+      
+      // Clear animation state after a delay
+      setTimeout(() => {
+        setRecentlySentIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(docRef.id);
+          return newSet;
+        });
+      }, 500);
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageText);
+    } finally {
+      setSendingMessage(null);
     }
   };
 
@@ -252,7 +275,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
 
               {/* Mobile Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-3">
-                {conversationMessages.length === 0 ? (
+                {conversationMessages.length === 0 && !sendingMessage ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
                       <Coffee className="w-8 h-8 text-amber-600" />
@@ -265,6 +288,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                     {conversationMessages.map((msg, idx) => {
                       const isOwn = msg.senderId === MY_USER_ID;
                       const showDate = shouldShowDateSeparator(idx);
+                      const isNew = recentlySentIds.has(msg.id);
                       return (
                         <React.Fragment key={msg.id}>
                           {showDate && (
@@ -274,7 +298,12 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                               </span>
                             </div>
                           )}
-                          <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                          <motion.div 
+                            initial={isNew ? { opacity: 0, scale: 0.8, y: 20 } : false}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                            className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                          >
                             <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
                               isOwn 
                                 ? 'bg-amber-500 text-white rounded-br-md' 
@@ -285,10 +314,31 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                                 {formatMessageTime(msg.timestamp)}
                               </p>
                             </div>
-                          </div>
+                          </motion.div>
                         </React.Fragment>
                       );
                     })}
+                    {/* Sending Message Bubble */}
+                    {sendingMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.5, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                        className="flex justify-end"
+                      >
+                        <div className="max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-md bg-amber-400 text-white">
+                          <p className="text-sm leading-relaxed">{sendingMessage}</p>
+                          <p className="text-[10px] mt-1 text-amber-100 flex items-center gap-1">
+                            <motion.span
+                              animate={{ opacity: [0.5, 1, 0.5] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            >
+                              Sending...
+                            </motion.span>
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
@@ -308,15 +358,17 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     className="flex-1 py-2.5 px-4 bg-amber-50 border border-amber-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-200"
                   />
-                  <button
+                  <motion.button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() || !!sendingMessage}
+                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.05 }}
                     className={`p-2.5 rounded-xl transition-colors ${
-                      newMessage.trim() ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-400'
+                      newMessage.trim() && !sendingMessage ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-400'
                     }`}
                   >
                     <Send className="w-5 h-5" />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             </motion.div>
@@ -329,15 +381,13 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
             >
               {/* Mobile List Header */}
               <div className="flex-shrink-0 p-4 bg-white border-b border-amber-100">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
-                      <ArrowLeft className="w-5 h-5 text-amber-700" />
-                    </button>
+                <div className="flex items-center gap-3 mb-4">
+                  <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
+                    <ArrowLeft className="w-5 h-5 text-amber-700" />
+                  </button>
+                  <div>
                     <h1 className="text-xl font-bold text-gray-900">Messages</h1>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                    <Coffee className="w-5 h-5 text-white" />
+                    <p className="text-xs text-gray-500">{filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
                 <div className="relative">
@@ -421,18 +471,13 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         <div className="w-80 lg:w-96 bg-white border-r border-amber-100 flex flex-col">
           {/* Desktop List Header */}
           <div className="flex-shrink-0 p-4 border-b border-amber-50">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
-                  <ArrowLeft className="w-5 h-5 text-amber-700" />
-                </button>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Messages</h1>
-                  <p className="text-xs text-gray-500">{filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
-                <Coffee className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-3 mb-4">
+              <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
+                <ArrowLeft className="w-5 h-5 text-amber-700" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+                <p className="text-xs text-gray-500">{filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <div className="relative">
@@ -564,7 +609,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
 
               {/* Desktop Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                {conversationMessages.length === 0 ? (
+                {conversationMessages.length === 0 && !sendingMessage ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
                       <Coffee className="w-10 h-10 text-amber-600" />
@@ -578,6 +623,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                       const isOwn = msg.senderId === MY_USER_ID;
                       const showDate = shouldShowDateSeparator(idx);
                       const isSelected = selectedMessages.has(msg.id);
+                      const isNew = recentlySentIds.has(msg.id);
                       return (
                         <React.Fragment key={msg.id}>
                           {showDate && (
@@ -587,7 +633,10 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                               </span>
                             </div>
                           )}
-                          <div 
+                          <motion.div 
+                            initial={isNew ? { opacity: 0, scale: 0.8, y: 20 } : false}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                             className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode ? 'cursor-pointer' : ''}`}
                             onClick={() => isSelectMode && (
                               isSelected 
@@ -624,10 +673,31 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                                 </p>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         </React.Fragment>
                       );
                     })}
+                    {/* Sending Message Bubble */}
+                    {sendingMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.5, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                        className="flex justify-end"
+                      >
+                        <div className="max-w-[65%] px-4 py-2.5 rounded-2xl rounded-br-md bg-amber-400 text-white shadow-lg">
+                          <p className="text-[15px] leading-relaxed">{sendingMessage}</p>
+                          <p className="text-[10px] mt-1 text-amber-100 flex items-center gap-1">
+                            <motion.span
+                              animate={{ opacity: [0.5, 1, 0.5] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            >
+                              Sending...
+                            </motion.span>
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
@@ -647,17 +717,19 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     className="flex-1 py-3 px-5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300"
                   />
-                  <button
+                  <motion.button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() || !!sendingMessage}
+                    whileTap={{ scale: 0.85 }}
+                    whileHover={{ scale: 1.05 }}
                     className={`p-3 rounded-xl transition-all flex-shrink-0 ${
-                      newMessage.trim() 
+                      newMessage.trim() && !sendingMessage
                         ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md' 
                         : 'bg-gray-100 text-gray-400'
                     }`}
                   >
                     <Send className="w-5 h-5" />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             </>
