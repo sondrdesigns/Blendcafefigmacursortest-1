@@ -32,6 +32,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [recentlySentIds, setRecentlySentIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const mobileMessagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Build conversations from friends list
   useEffect(() => {
@@ -112,15 +114,44 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   };
 
   // Auto-scroll to bottom when messages change or conversation changes
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+  const scrollToBottom = (immediate = false) => {
+    const scroll = () => {
+      // Try desktop container first
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+      // Try mobile container
+      if (mobileMessagesContainerRef.current) {
+        mobileMessagesContainerRef.current.scrollTop = mobileMessagesContainerRef.current.scrollHeight;
+      }
+      // Fallback to scrollIntoView
+      messagesEndRef.current?.scrollIntoView({ behavior: immediate ? 'auto' : 'smooth', block: 'end' });
+    };
+    
+    if (immediate) {
+      scroll();
+      // Also scroll after a brief delay to catch any late renders
+      setTimeout(scroll, 50);
+      setTimeout(scroll, 150);
+    } else {
+      setTimeout(scroll, 50);
+      setTimeout(scroll, 200);
+    }
   };
 
+  // Scroll when conversation changes (immediate)
   useEffect(() => {
-    scrollToBottom();
-  }, [conversationMessages.length, selectedConversation?.id]);
+    if (selectedConversation) {
+      scrollToBottom(true);
+    }
+  }, [selectedConversation?.id]);
+
+  // Scroll when messages change (smooth)
+  useEffect(() => {
+    if (conversationMessages.length > 0) {
+      scrollToBottom(false);
+    }
+  }, [conversationMessages.length]);
 
   useEffect(() => {
     if (initialConversationId && conversations.length > 0) {
@@ -133,9 +164,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     if (!newMessage.trim() || !selectedConversation || !MY_USER_ID) return;
     const messageText = newMessage.trim();
     setNewMessage('');
-    
-    // Scroll to bottom immediately
-    scrollToBottom();
     
     try {
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -156,8 +184,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         });
       }, 600);
       
-      // Scroll again after message is added
-      scrollToBottom();
+      // Scroll to bottom after message is sent
+      scrollToBottom(true);
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageText); // Restore on error
@@ -331,7 +359,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               </div>
 
               {/* Mobile Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
+              <div ref={mobileMessagesContainerRef} className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
                 {conversationMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
@@ -347,7 +375,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         <MessageBubble msg={msg} idx={idx} isMobile />
                       </React.Fragment>
                     ))}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} className="h-1" />
                   </div>
                 )}
               </div>
@@ -618,7 +646,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               </div>
 
               {/* Desktop Messages */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
                 {conversationMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
@@ -634,7 +662,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         <MessageBubble msg={msg} idx={idx} />
                       </React.Fragment>
                     ))}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} className="h-1" />
                   </div>
                 )}
               </div>
