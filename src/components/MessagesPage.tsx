@@ -174,7 +174,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         read: false,
       });
       
-      // Track recently sent for animation
+      // Track recently sent for animation - keep longer for smooth animation
       setRecentlySentIds(prev => new Set(prev).add(docRef.id));
       setTimeout(() => {
         setRecentlySentIds(prev => {
@@ -182,7 +182,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           newSet.delete(docRef.id);
           return newSet;
         });
-      }, 600);
+      }, 500);
       
       // Scroll to bottom after message is sent
       scrollToBottom(true);
@@ -267,9 +267,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           </div>
         )}
         <motion.div 
-          initial={isNew ? { opacity: 0, scale: 0.8, y: 20 } : false}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          initial={isNew ? { opacity: 0, scale: 0.95, y: 10, x: isOwn ? 15 : -15 } : false}
+          animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+          transition={{ 
+            duration: 0.35,
+            ease: [0.25, 0.46, 0.45, 0.94], // Custom cubic-bezier for smooth deceleration
+            opacity: { duration: 0.2 },
+            scale: { duration: 0.3, ease: [0.34, 1.56, 0.64, 1] } // Gentle bounce
+          }}
           className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode && !isMobile ? 'cursor-pointer' : ''}`}
           onClick={() => !isMobile && isSelectMode && (
             isSelected 
