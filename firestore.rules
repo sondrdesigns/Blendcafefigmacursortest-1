@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - users can read any profile, but only update their own
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Friendships collection - users can read/write friendships they're part of
+    match /friendships/{friendshipId} {
+      // Allow read if user is authenticated and is one of the users in the friendship
+      allow read: if request.auth != null && 
+        (request.auth.uid in resource.data.users || 
+         request.auth.uid in request.resource.data.users);
+      
+      // Allow create if user is authenticated and is one of the users being added
+      allow create: if request.auth != null && 
+        request.auth.uid in request.resource.data.users;
+      
+      // Allow update if user is authenticated and is one of the users in the friendship
+      allow update: if request.auth != null && 
+        request.auth.uid in resource.data.users;
+      
+      // Allow delete if user is authenticated and is one of the users in the friendship
+      allow delete: if request.auth != null && 
+        request.auth.uid in resource.data.users;
+    }
+    
+    // Messages collection - users can read/write messages they're part of
+    match /messages/{messageId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.receiverId);
+      
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.senderId;
+      
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.receiverId);
+      
+      allow delete: if request.auth != null && 
+        request.auth.uid == resource.data.senderId;
+    }
+    
+    // Cafes collection - anyone authenticated can read, only admins can write
+    match /cafes/{cafeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Reviews collection - anyone authenticated can read, users can write their own
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+  }
+}
+

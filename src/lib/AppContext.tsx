@@ -258,7 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const sendFriendRequest = async (friendId: string) => {
     if (!user) {
       console.error('Cannot send friend request: No user logged in');
-      return;
+      throw new Error('You must be logged in to send friend requests');
     }
     
     try {
@@ -266,14 +266,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Check if friendship already exists
       const friendshipId = [user.id, friendId].sort().join('_');
-      const existingFriendship = await getDoc(doc(db, 'friendships', friendshipId));
       
-      if (existingFriendship.exists()) {
-        console.log('⚠️ Friendship already exists:', existingFriendship.data());
-        return;
+      try {
+        const existingFriendship = await getDoc(doc(db, 'friendships', friendshipId));
+        if (existingFriendship.exists()) {
+          console.log('⚠️ Friendship already exists:', existingFriendship.data());
+          throw new Error('Friend request already exists');
+        }
+      } catch (readError: any) {
+        // If it's a permission error on read, that's okay - we'll try to create anyway
+        if (!readError.message?.includes('already exists')) {
+          console.log('Could not check existing friendship, attempting to create...');
+        } else {
+          throw readError;
+        }
       }
       
       // Create friendship document
+      console.log('Creating friendship document:', friendshipId);
       await setDoc(doc(db, 'friendships', friendshipId), {
         users: [user.id, friendId],
         status: 'pending',
@@ -305,8 +315,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return [...prev, newFriend];
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error sending friend request:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      
+      // Provide more helpful error messages
+      if (error.code === 'permission-denied') {
+        throw new Error('Permission denied. Please check Firestore security rules.');
+      } else if (error.code === 'unavailable') {
+        throw new Error('Network error. Please check your connection.');
+      }
+      
       throw error;
     }
   };

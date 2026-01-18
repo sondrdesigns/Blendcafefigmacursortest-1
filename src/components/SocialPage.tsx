@@ -54,9 +54,11 @@ export function SocialPage({ onNavigate }: SocialPageProps) {
       toast.success('Friend request sent!');
       // Remove from search results since they're now in pending
       setSearchResults(prev => prev.filter(u => u.id !== userId));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending friend request:', error);
-      toast.error('Failed to send friend request');
+      // Show the specific error message
+      const errorMessage = error.message || 'Failed to send friend request';
+      toast.error(errorMessage);
     } finally {
       setSendingRequests(prev => {
         const newSet = new Set(prev);
