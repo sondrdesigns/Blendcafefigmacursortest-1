@@ -93,8 +93,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               
               loadedFriends.push({
                 id: friendUserId,
-                username: friendData.username || 'User',
-                avatar: friendData.avatar || '/default-avatar.svg',
+                username: friendData.username || friendData.displayName || friendData.name || friendData.email?.split('@')[0] || 'User',
+                avatar: friendData.avatar || friendData.photoURL || '/default-avatar.svg',
                 status: status,
                 mutualFriends: 0,
                 reviewCount: friendData.reviewCount || 0,

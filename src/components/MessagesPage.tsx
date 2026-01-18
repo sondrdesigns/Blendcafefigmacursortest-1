@@ -474,18 +474,18 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className={`font-semibold truncate text-base ${unread > 0 ? 'text-gray-900' : 'text-gray-800'}`}>
-                                {conv.participant.username || conv.participant.id || 'Unknown'}
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-base flex-1 truncate" style={{ color: '#78523a' }}>
+                                {conv.participant.username || (conv.participant as any).displayName || (conv.participant as any).name || conv.participant.id?.slice(0, 8) || 'User'}
                               </span>
                               {lastMsg && (
-                                <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+                                <span className="text-xs text-gray-400 flex-shrink-0">
                                   {formatTime(lastMsg.timestamp)}
                                 </span>
                               )}
                             </div>
                             {lastMsg && (
-                              <p className={`text-sm truncate ${unread > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
+                              <p className={`text-sm truncate mt-0.5 ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
                                 {unread > 0 && lastMsg.senderId !== MY_USER_ID 
                                   ? 'New Message' 
                                   : lastMsg.senderId === MY_USER_ID 
@@ -568,23 +568,21 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-amber-800 rounded-full" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-semibold truncate text-base ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
-                            {conv.participant.username || conv.participant.id || 'Unknown'}
-                          </span>
-                          {unread > 0 && (
-                            <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" />
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold text-base flex-1 truncate ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
+                          {conv.participant.username || (conv.participant as any).displayName || (conv.participant as any).name || conv.participant.id?.slice(0, 8) || 'User'}
+                        </span>
+                        {unread > 0 && (
+                          <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse flex-shrink-0" />
+                        )}
                         {lastMsg && (
-                          <span className="text-xs text-amber-300 ml-2 flex-shrink-0">
+                          <span className="text-xs text-amber-300 flex-shrink-0">
                             {formatTime(lastMsg.timestamp)}
                           </span>
                         )}
                       </div>
                       {lastMsg && (
-                        <p className={`text-sm truncate ${unread > 0 ? 'text-amber-100 font-medium' : 'text-amber-300'}`}>
+                        <p className={`text-sm truncate mt-0.5 ${unread > 0 ? 'text-amber-100 font-medium' : 'text-amber-300'}`}>
                           {unread > 0 && lastMsg.senderId !== MY_USER_ID 
                             ? 'New Message' 
                             : lastMsg.senderId === MY_USER_ID 
