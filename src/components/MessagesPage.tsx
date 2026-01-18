@@ -220,7 +220,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
       <React.Fragment>
         {showDate && (
           <div className="flex justify-center py-3">
-            <span className="px-3 py-1 bg-amber-100/80 rounded-full text-xs font-medium text-amber-700">
+            <span className="px-3 py-1 bg-amber-200 rounded-full text-xs font-medium text-amber-800">
               {formatDateSeparator(msg.timestamp)}
             </span>
           </div>
@@ -252,17 +252,15 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                 </AvatarFallback>
               </Avatar>
             )}
-            <div className={`px-4 py-2.5 rounded-2xl ${
+            <div className={`px-4 py-2.5 rounded-2xl shadow-sm ${
               !isMobile && isSelected ? 'ring-2 ring-amber-500 ' : ''
             }${
               isOwn 
                 ? 'bg-amber-500 text-white rounded-br-md'
-                : isMobile 
-                  ? 'bg-white border border-amber-100 text-gray-900 rounded-bl-md'
-                  : 'bg-white border border-gray-100 text-gray-900 rounded-bl-md shadow-sm'
+                : 'bg-white border border-gray-200 rounded-bl-md'
             }`}>
-              <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed`}>{msg.text}</p>
-              <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-100' : 'text-gray-400'}`}>
+              <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed ${isOwn ? 'text-white' : 'text-gray-900'}`}>{msg.text}</p>
+              <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-200' : 'text-gray-500'}`}>
                 {formatMessageTime(msg.timestamp)}
               </p>
             </div>
@@ -467,9 +465,9 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         {/* Sidebar */}
         <div className="w-80 lg:w-96 bg-white border-r border-amber-100 flex flex-col">
           {/* Desktop List Header */}
-          <div className="flex-none p-4 border-b border-amber-50">
+          <div className="flex-none p-4 pt-6 border-b border-amber-50">
             <div className="flex items-center gap-3 mb-4">
-              <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
+              <button onClick={() => onNavigate('social')} className="p-2 -ml-2 rounded-xl hover:bg-amber-50 transition-colors">
                 <ArrowLeft className="w-5 h-5 text-amber-700" />
               </button>
               <div>
@@ -505,11 +503,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                 const unread = getUnreadCount(conv.participant.id);
                 const isSelected = selectedConversation?.id === conv.id;
                 return (
-                  <button
+                  <motion.button
                     key={conv.id}
                     onClick={() => setSelectedConversation(conv)}
-                    className={`w-full p-3 mb-1 rounded-xl transition-all flex items-center gap-3 text-left ${
-                      isSelected ? 'bg-amber-50 border border-amber-200' : 'hover:bg-gray-50 border border-transparent'
+                    whileHover={{ scale: 1.02, backgroundColor: isSelected ? 'rgb(255 251 235)' : 'rgb(249 250 251)' }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    className={`w-full p-3 mb-1 rounded-xl flex items-center gap-3 text-left ${
+                      isSelected ? 'bg-amber-50 border-2 border-amber-300 shadow-sm' : 'bg-white border border-gray-100 hover:shadow-md'
                     }`}
                   >
                     <div className="relative flex-shrink-0">
@@ -520,17 +521,17 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         </AvatarFallback>
                       </Avatar>
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-                      {unread > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                          {unread}
-                        </span>
-                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className={`font-medium truncate ${unread > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                          {conv.participant.username}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium truncate ${unread > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                            {conv.participant.username}
+                          </span>
+                          {unread > 0 && (
+                            <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse" />
+                          )}
+                        </div>
                         {lastMsg && (
                           <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
                             {formatTime(lastMsg.timestamp)}
@@ -543,7 +544,12 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         </p>
                       )}
                     </div>
-                  </button>
+                    {unread > 0 && (
+                      <span className="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                        {unread}
+                      </span>
+                    )}
+                  </motion.button>
                 );
               })
             )}
@@ -551,13 +557,13 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-b from-amber-50/30 to-white">
+        <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-b from-amber-50/50 to-white">
           {selectedConversation ? (
             <>
               {/* Desktop Chat Header */}
-              <div className="flex-none px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10 border-2 border-amber-100 flex-shrink-0">
+              <div className="flex-none px-6 py-5 bg-white border-b border-gray-100 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
+                  <Avatar className="w-11 h-11 border-2 border-amber-200 flex-shrink-0 shadow-sm">
                     <AvatarImage src={selectedConversation.participant.avatar} />
                     <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
                       {selectedConversation.participant.username[0].toUpperCase()}
