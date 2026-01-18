@@ -126,11 +126,21 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !MY_USER_ID || sendingMessage) return;
     const messageText = newMessage.trim();
+    const tempId = `temp-${Date.now()}`;
     
-    setSendingMessage(messageText);
+    // Optimistically add message to local state
+    const optimisticMessage: Message = {
+      id: tempId,
+      senderId: MY_USER_ID,
+      receiverId: selectedConversation.participant.id,
+      text: messageText,
+      timestamp: new Date(),
+      read: false,
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage('');
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
+    setSendingMessage(tempId); // Track which message is being sent
     
     try {
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -141,6 +151,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         read: false,
       });
       
+      // Remove optimistic message (Firestore listener will add the real one)
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       setRecentlySentIds(prev => new Set(prev).add(docRef.id));
       
       setTimeout(() => {
@@ -149,9 +161,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           newSet.delete(docRef.id);
           return newSet;
         });
-      }, 500);
+      }, 600);
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       setNewMessage(messageText);
     } finally {
       setSendingMessage(null);
@@ -222,6 +236,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     const showDate = shouldShowDateSeparator(idx);
     const isNew = recentlySentIds.has(msg.id);
     const isSelected = selectedMessages.has(msg.id);
+    const isSending = msg.id.startsWith('temp-');
 
     return (
       <React.Fragment>
@@ -233,18 +248,18 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           </div>
         )}
         <motion.div 
-          initial={isNew ? { opacity: 0, scale: 0.8, y: 20 } : false}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          initial={isNew || isSending ? { opacity: 0, scale: 0.8, y: 20 } : false}
+          animate={{ opacity: isSending ? 0.7 : 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
           className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode && !isMobile ? 'cursor-pointer' : ''}`}
-          onClick={() => !isMobile && isSelectMode && (
+          onClick={() => !isMobile && isSelectMode && !isSending && (
             isSelected 
               ? setSelectedMessages(prev => { const n = new Set(prev); n.delete(msg.id); return n; })
               : setSelectedMessages(prev => new Set(prev).add(msg.id))
           )}
         >
           <div className={`flex items-end gap-2 ${isMobile ? 'max-w-[75%]' : 'max-w-[65%]'} ${isOwn ? 'flex-row-reverse' : ''}`}>
-            {!isMobile && isSelectMode && (
+            {!isMobile && isSelectMode && !isSending && (
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 isSelected ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
               }`}>
@@ -263,14 +278,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               !isMobile && isSelected ? 'ring-2 ring-amber-500 ' : ''
             }${
               isOwn 
-                ? 'bg-amber-500 text-white rounded-br-md' 
+                ? isSending ? 'bg-amber-400 text-white rounded-br-md' : 'bg-amber-500 text-white rounded-br-md'
                 : isMobile 
                   ? 'bg-white border border-amber-100 text-gray-900 rounded-bl-md'
                   : 'bg-white border border-gray-100 text-gray-900 rounded-bl-md shadow-sm'
             }`}>
               <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed`}>{msg.text}</p>
               <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-100' : 'text-gray-400'}`}>
-                {formatMessageTime(msg.timestamp)}
+                {isSending ? 'Sending...' : formatMessageTime(msg.timestamp)}
               </p>
             </div>
           </div>
@@ -278,25 +293,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
       </React.Fragment>
     );
   };
-
-  // Sending Bubble Component
-  const SendingBubble = ({ text, isMobile = false }: { text: string; isMobile?: boolean }) => (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5, y: 30 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', damping: 15, stiffness: 400 }}
-      className="flex justify-end"
-    >
-      <div className={`${isMobile ? 'max-w-[75%]' : 'max-w-[65%]'} px-4 py-2.5 rounded-2xl rounded-br-md bg-amber-400 text-white ${isMobile ? '' : 'shadow-lg'}`}>
-        <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed`}>{text}</p>
-        <p className="text-[10px] mt-1 text-amber-100 flex items-center gap-1">
-          <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1, repeat: Infinity }}>
-            Sending...
-          </motion.span>
-        </p>
-      </div>
-    </motion.div>
-  );
 
   return (
     <div className="fixed inset-0 top-[57px] bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50/30 overflow-hidden">
@@ -312,23 +308,17 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               className="absolute inset-0 flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50/30"
             >
               {/* Mobile Chat Header */}
-              <div className="flex-none px-4 py-3 bg-white border-b border-amber-100 flex items-center gap-3">
-                <button onClick={() => setSelectedConversation(null)} className="p-2 -ml-2 rounded-xl hover:bg-amber-50">
+              <div className="flex-none px-4 py-2 bg-white border-b border-amber-100 flex items-center gap-3">
+                <button onClick={() => setSelectedConversation(null)} className="p-1.5 -ml-1 rounded-lg hover:bg-amber-50">
                   <ArrowLeft className="w-5 h-5 text-amber-700" />
                 </button>
-                <Avatar className="w-10 h-10 border-2 border-amber-100">
+                <Avatar className="w-8 h-8 border-2 border-amber-100 flex-shrink-0">
                   <AvatarImage src={selectedConversation.participant.avatar} />
-                  <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
+                  <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold text-sm">
                     {selectedConversation.participant.username[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{selectedConversation.participant.username}</h3>
-                  <p className="text-xs text-green-600 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                    Online
-                  </p>
-                </div>
+                <h3 className="flex-1 font-semibold text-gray-900 truncate">{selectedConversation.participant.username}</h3>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-2 rounded-xl hover:bg-amber-50">
@@ -353,7 +343,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
 
               {/* Mobile Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
-                {conversationMessages.length === 0 && !sendingMessage ? (
+                {conversationMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
                       <Coffee className="w-8 h-8 text-amber-600" />
@@ -368,7 +358,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         <MessageBubble msg={msg} idx={idx} isMobile />
                       </React.Fragment>
                     ))}
-                    {sendingMessage && <SendingBubble text={sendingMessage} isMobile />}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
@@ -588,21 +577,15 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           {selectedConversation ? (
             <>
               {/* Desktop Chat Header */}
-              <div className="flex-none px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Avatar className="w-11 h-11 border-2 border-amber-100">
+              <div className="flex-none px-6 py-3 bg-white border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-9 h-9 border-2 border-amber-100 flex-shrink-0">
                     <AvatarImage src={selectedConversation.participant.avatar} />
-                    <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
+                    <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold text-sm">
                       {selectedConversation.participant.username[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{selectedConversation.participant.username}</h3>
-                    <p className="text-xs text-green-600 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                      Online
-                    </p>
-                  </div>
+                  <h3 className="font-semibold text-gray-900">{selectedConversation.participant.username}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {isSelectMode && selectedMessages.size > 0 && (
@@ -639,7 +622,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
 
               {/* Desktop Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-                {conversationMessages.length === 0 && !sendingMessage ? (
+                {conversationMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center">
                     <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
                       <Coffee className="w-10 h-10 text-amber-600" />
@@ -654,7 +637,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         <MessageBubble msg={msg} idx={idx} />
                       </React.Fragment>
                     ))}
-                    {sendingMessage && <SendingBubble text={sendingMessage} />}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
