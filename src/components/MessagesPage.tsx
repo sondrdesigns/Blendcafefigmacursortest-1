@@ -30,10 +30,10 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
-  const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mobileMessagesContainerRef = useRef<HTMLDivElement>(null);
+  const animatedMessageIds = useRef<Set<string>>(new Set());
 
   // Build conversations from friends list
   useEffect(() => {
@@ -166,16 +166,13 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     setNewMessage('');
     
     try {
-      const docRef = await addDoc(collection(db, 'messages'), {
+      await addDoc(collection(db, 'messages'), {
         senderId: MY_USER_ID,
         receiverId: selectedConversation.participant.id,
         text: messageText,
         timestamp: Timestamp.now(),
         read: false,
       });
-      
-      // Track pending message for animation
-      setPendingMessageId(docRef.id);
       
       // Scroll to bottom after message is sent
       scrollToBottom(true);
@@ -249,8 +246,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     const showDate = shouldShowDateSeparator(idx);
     const isSelected = selectedMessages.has(msg.id);
     
-    // Animate if this is the pending message we just sent
-    const shouldAnimate = msg.id === pendingMessageId;
+    // Check if this message should animate (only own messages that haven't been animated)
+    const hasAnimated = animatedMessageIds.current.has(msg.id);
+    const shouldAnimate = isOwn && !hasAnimated;
+    
+    // Mark as animated immediately to prevent re-animation
+    if (shouldAnimate) {
+      animatedMessageIds.current.add(msg.id);
+    }
 
     return (
       <React.Fragment>
@@ -262,18 +265,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           </div>
         )}
         <motion.div 
-          initial={shouldAnimate ? { opacity: 0, scale: 0.85, y: 20, x: isOwn ? 30 : -30 } : false}
-          animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-          onAnimationComplete={() => {
-            if (shouldAnimate) {
-              setPendingMessageId(null);
-            }
-          }}
+          initial={shouldAnimate ? { opacity: 0, y: 12 } : false}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ 
-            duration: 0.4,
-            ease: [0.22, 1, 0.36, 1], // Smooth ease-out
-            opacity: { duration: 0.25, delay: 0.05 },
-            scale: { duration: 0.35, ease: [0.34, 1.3, 0.64, 1] }
+            duration: 0.25,
+            ease: [0.25, 0.1, 0.25, 1]
           }}
           className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode && !isMobile ? 'cursor-pointer' : ''}`}
           onClick={() => !isMobile && isSelectMode && (
