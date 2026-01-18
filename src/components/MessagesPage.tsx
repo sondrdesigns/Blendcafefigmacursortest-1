@@ -486,7 +486,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                             </div>
                             {lastMsg && (
                               <p className={`text-sm truncate ${unread > 0 ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
-                                {lastMsg.senderId === MY_USER_ID && 'You: '}{lastMsg.text}
+                                {unread > 0 && lastMsg.senderId !== MY_USER_ID 
+                                  ? 'New Message' 
+                                  : lastMsg.senderId === MY_USER_ID 
+                                    ? `You: ${lastMsg.text}` 
+                                    : lastMsg.text}
                               </p>
                             )}
                           </div>
@@ -581,7 +585,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                       </div>
                       {lastMsg && (
                         <p className={`text-sm truncate ${unread > 0 ? 'text-amber-100 font-medium' : 'text-amber-300'}`}>
-                          {lastMsg.senderId === MY_USER_ID && 'You: '}{lastMsg.text}
+                          {unread > 0 && lastMsg.senderId !== MY_USER_ID 
+                            ? 'New Message' 
+                            : lastMsg.senderId === MY_USER_ID 
+                              ? `You: ${lastMsg.text}` 
+                              : lastMsg.text}
                         </p>
                       )}
                     </div>
