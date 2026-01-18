@@ -111,9 +111,16 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     return convMessages[convMessages.length - 1];
   };
 
+  // Auto-scroll to bottom when messages change or conversation changes
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [conversationMessages.length]);
+    scrollToBottom();
+  }, [conversationMessages.length, selectedConversation?.id]);
 
   useEffect(() => {
     if (initialConversationId && conversations.length > 0) {
@@ -126,6 +133,9 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     if (!newMessage.trim() || !selectedConversation || !MY_USER_ID) return;
     const messageText = newMessage.trim();
     setNewMessage('');
+    
+    // Scroll to bottom immediately
+    scrollToBottom();
     
     try {
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -145,6 +155,9 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           return newSet;
         });
       }, 600);
+      
+      // Scroll again after message is added
+      scrollToBottom();
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageText); // Restore on error
@@ -252,15 +265,15 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                 </AvatarFallback>
               </Avatar>
             )}
-            <div className={`px-4 py-2.5 rounded-2xl shadow-sm ${
-              !isMobile && isSelected ? 'ring-2 ring-amber-500 ' : ''
+            <div className={`px-4 py-2.5 rounded-2xl shadow-md ${
+              !isMobile && isSelected ? 'ring-2 ring-amber-400 ' : ''
             }${
               isOwn 
-                ? 'bg-amber-500 text-white rounded-br-md'
+                ? 'bg-amber-800 text-white rounded-br-md'
                 : 'bg-white border border-gray-200 rounded-bl-md'
             }`}>
               <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed ${isOwn ? 'text-white' : 'text-gray-900'}`}>{msg.text}</p>
-              <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-200' : 'text-gray-500'}`}>
+              <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-300' : 'text-gray-500'}`}>
                 {formatMessageTime(msg.timestamp)}
               </p>
             </div>
