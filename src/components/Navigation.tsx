@@ -62,11 +62,11 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
 
   return (
     <>
-      {/* Desktop Navigation */}
+      {/* Desktop Navigation - Full labels (xl and up) */}
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="hidden lg:flex items-center justify-between px-6 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
+        className="hidden xl:flex items-center justify-between px-6 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
         style={{ 
           boxShadow: '0 2px 8px rgba(101, 67, 33, 0.08)',
           borderColor: 'rgba(141, 110, 99, 0.15)'
@@ -87,7 +87,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-1 flex-nowrap">
           {navItems.map(item => (
             <button
               key={item.id}
@@ -117,7 +117,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 flex-shrink-0 rounded-2xl">
+              <Button variant="outline" size="sm" className="gap-1.5 flex-shrink-0 rounded-2xl ml-1">
                 <Globe className="w-4 h-4" />
                 <span>{languages.find(l => l.code === language)?.flag}</span>
               </Button>
@@ -138,7 +138,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl transition-all flex-shrink-0 hover:bg-secondary"
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl transition-all flex-shrink-0 hover:bg-secondary ml-1"
             style={{ color: '#6d4c41' }}
           >
             <LogOut className="w-4 h-4" />
@@ -147,11 +147,11 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
         </div>
       </motion.nav>
 
-      {/* Tablet Navigation - Icon only with tooltips */}
+      {/* Tablet/Medium Desktop Navigation - Icon only with tooltips */}
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="hidden md:flex lg:hidden items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
+        className="hidden md:flex xl:hidden items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
         style={{ 
           boxShadow: '0 2px 8px rgba(101, 67, 33, 0.08)',
           borderColor: 'rgba(141, 110, 99, 0.15)'
