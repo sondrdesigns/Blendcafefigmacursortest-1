@@ -30,7 +30,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
-  const [sendingMessage, setSendingMessage] = useState<string | null>(null);
   const [recentlySentIds, setRecentlySentIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -124,23 +123,9 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   }, [initialConversationId, conversations.length]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || !MY_USER_ID || sendingMessage) return;
+    if (!newMessage.trim() || !selectedConversation || !MY_USER_ID) return;
     const messageText = newMessage.trim();
-    const tempId = `temp-${Date.now()}`;
-    
-    // Optimistically add message to local state
-    const optimisticMessage: Message = {
-      id: tempId,
-      senderId: MY_USER_ID,
-      receiverId: selectedConversation.participant.id,
-      text: messageText,
-      timestamp: new Date(),
-      read: false,
-    };
-    
-    setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage('');
-    setSendingMessage(tempId); // Track which message is being sent
     
     try {
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -151,10 +136,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         read: false,
       });
       
-      // Remove optimistic message (Firestore listener will add the real one)
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      // Track recently sent for animation
       setRecentlySentIds(prev => new Set(prev).add(docRef.id));
-      
       setTimeout(() => {
         setRecentlySentIds(prev => {
           const newSet = new Set(prev);
@@ -164,11 +147,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
       }, 600);
     } catch (error) {
       console.error('Error sending message:', error);
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      setNewMessage(messageText);
-    } finally {
-      setSendingMessage(null);
+      setNewMessage(messageText); // Restore on error
     }
   };
 
@@ -236,7 +215,6 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
     const showDate = shouldShowDateSeparator(idx);
     const isNew = recentlySentIds.has(msg.id);
     const isSelected = selectedMessages.has(msg.id);
-    const isSending = msg.id.startsWith('temp-');
 
     return (
       <React.Fragment>
@@ -248,18 +226,18 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           </div>
         )}
         <motion.div 
-          initial={isNew || isSending ? { opacity: 0, scale: 0.8, y: 20 } : false}
-          animate={{ opacity: isSending ? 0.7 : 1, scale: 1, y: 0 }}
+          initial={isNew ? { opacity: 0, scale: 0.8, y: 20 } : false}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
           className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode && !isMobile ? 'cursor-pointer' : ''}`}
-          onClick={() => !isMobile && isSelectMode && !isSending && (
+          onClick={() => !isMobile && isSelectMode && (
             isSelected 
               ? setSelectedMessages(prev => { const n = new Set(prev); n.delete(msg.id); return n; })
               : setSelectedMessages(prev => new Set(prev).add(msg.id))
           )}
         >
           <div className={`flex items-end gap-2 ${isMobile ? 'max-w-[75%]' : 'max-w-[65%]'} ${isOwn ? 'flex-row-reverse' : ''}`}>
-            {!isMobile && isSelectMode && !isSending && (
+            {!isMobile && isSelectMode && (
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 isSelected ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
               }`}>
@@ -278,14 +256,14 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               !isMobile && isSelected ? 'ring-2 ring-amber-500 ' : ''
             }${
               isOwn 
-                ? isSending ? 'bg-amber-400 text-white rounded-br-md' : 'bg-amber-500 text-white rounded-br-md'
+                ? 'bg-amber-500 text-white rounded-br-md'
                 : isMobile 
                   ? 'bg-white border border-amber-100 text-gray-900 rounded-bl-md'
                   : 'bg-white border border-gray-100 text-gray-900 rounded-bl-md shadow-sm'
             }`}>
               <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed`}>{msg.text}</p>
               <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-100' : 'text-gray-400'}`}>
-                {isSending ? 'Sending...' : formatMessageTime(msg.timestamp)}
+                {formatMessageTime(msg.timestamp)}
               </p>
             </div>
           </div>
@@ -308,17 +286,17 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               className="absolute inset-0 flex flex-col bg-gradient-to-br from-amber-50 via-orange-50/50 to-yellow-50/30"
             >
               {/* Mobile Chat Header */}
-              <div className="flex-none px-4 py-2 bg-white border-b border-amber-100 flex items-center gap-3">
-                <button onClick={() => setSelectedConversation(null)} className="p-1.5 -ml-1 rounded-lg hover:bg-amber-50">
+              <div className="flex-none px-4 py-3 bg-white border-b border-amber-100 flex items-center gap-3">
+                <button onClick={() => setSelectedConversation(null)} className="p-2 -ml-2 rounded-lg hover:bg-amber-50">
                   <ArrowLeft className="w-5 h-5 text-amber-700" />
                 </button>
-                <Avatar className="w-8 h-8 border-2 border-amber-100 flex-shrink-0">
+                <Avatar className="w-9 h-9 border-2 border-amber-100 flex-shrink-0">
                   <AvatarImage src={selectedConversation.participant.avatar} />
-                  <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold text-sm">
+                  <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
                     {selectedConversation.participant.username[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <h3 className="flex-1 font-semibold text-gray-900 truncate">{selectedConversation.participant.username}</h3>
+                <h3 className="flex-1 font-semibold text-gray-900 truncate text-lg">{selectedConversation.participant.username}</h3>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-2 rounded-xl hover:bg-amber-50">
@@ -379,11 +357,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                   />
                   <motion.button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || !!sendingMessage}
+                    disabled={!newMessage.trim()}
                     whileTap={{ scale: 0.9 }}
                     whileHover={{ scale: 1.05 }}
                     className={`p-2.5 rounded-xl transition-colors ${
-                      newMessage.trim() && !sendingMessage ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-400'
+                      newMessage.trim() ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-400'
                     }`}
                   >
                     <Send className="w-5 h-5" />
@@ -577,15 +555,15 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           {selectedConversation ? (
             <>
               {/* Desktop Chat Header */}
-              <div className="flex-none px-6 py-3 bg-white border-b border-gray-100 flex items-center justify-between">
+              <div className="flex-none px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar className="w-9 h-9 border-2 border-amber-100 flex-shrink-0">
+                  <Avatar className="w-10 h-10 border-2 border-amber-100 flex-shrink-0">
                     <AvatarImage src={selectedConversation.participant.avatar} />
-                    <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold text-sm">
+                    <AvatarFallback className="bg-amber-100 text-amber-700 font-semibold">
                       {selectedConversation.participant.username[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <h3 className="font-semibold text-gray-900">{selectedConversation.participant.username}</h3>
+                  <h3 className="font-semibold text-gray-900 text-lg">{selectedConversation.participant.username}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {isSelectMode && selectedMessages.size > 0 && (
@@ -658,11 +636,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                   />
                   <motion.button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || !!sendingMessage}
+                    disabled={!newMessage.trim()}
                     whileTap={{ scale: 0.85 }}
                     whileHover={{ scale: 1.05 }}
                     className={`p-3 rounded-xl transition-all flex-shrink-0 ${
-                      newMessage.trim() && !sendingMessage
+                      newMessage.trim()
                         ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md' 
                         : 'bg-gray-100 text-gray-400'
                     }`}
