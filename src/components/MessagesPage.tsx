@@ -269,11 +269,11 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
               !isMobile && isSelected ? 'ring-2 ring-amber-400 ' : ''
             }${
               isOwn 
-                ? 'bg-amber-800 text-white rounded-br-md'
-                : 'bg-white border border-gray-200 rounded-bl-md'
-            }`}>
-              <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed ${isOwn ? 'text-white' : 'text-gray-900'}`}>{msg.text}</p>
-              <p className={`text-[10px] mt-1 ${isOwn ? 'text-amber-300' : 'text-gray-500'}`}>
+                ? 'rounded-br-md'
+                : 'rounded-bl-md'
+            }`} style={{ backgroundColor: '#a67c52' }}>
+              <p className={`${isMobile ? 'text-sm' : 'text-[15px]'} leading-relaxed text-white`}>{msg.text}</p>
+              <p className="text-[10px] mt-1 text-white/70">
                 {formatMessageTime(msg.timestamp)}
               </p>
             </div>
