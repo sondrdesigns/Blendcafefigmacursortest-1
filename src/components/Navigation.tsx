@@ -62,11 +62,11 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
 
   return (
     <>
-      {/* Desktop Navigation - Full labels (xl and up) */}
+      {/* Desktop Navigation - Full labels (1100px and up) */}
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="hidden xl:flex items-center justify-between px-6 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
+        className="hidden min-[1100px]:flex items-center justify-between px-6 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
         style={{ 
           boxShadow: '0 2px 8px rgba(101, 67, 33, 0.08)',
           borderColor: 'rgba(141, 110, 99, 0.15)'
@@ -147,11 +147,11 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
         </div>
       </motion.nav>
 
-      {/* Tablet/Medium Desktop Navigation - Icon only with tooltips */}
+      {/* Tablet/Medium Desktop Navigation - Icon only with tooltips (768px to 1099px) */}
       <motion.nav
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="hidden md:flex xl:hidden items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
+        className="hidden md:flex min-[1100px]:hidden items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b sticky top-0 z-50"
         style={{ 
           boxShadow: '0 2px 8px rgba(101, 67, 33, 0.08)',
           borderColor: 'rgba(141, 110, 99, 0.15)'

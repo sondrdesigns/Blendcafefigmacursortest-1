@@ -389,47 +389,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
             >
-              {/* Push Notifications Card */}
-              <Card className={notificationsEnabled ? 'border-green-200 bg-green-50/30' : 'border-amber-200 bg-amber-50/30'}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${notificationsEnabled ? 'bg-green-100' : 'bg-amber-100'}`}>
-                      <Smartphone className={`w-5 h-5 ${notificationsEnabled ? 'text-green-600' : 'text-amber-600'}`} />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-base">Push Notifications</CardTitle>
-                      <CardDescription>
-                        {notificationsEnabled 
-                          ? 'You will receive notifications even when the app is closed' 
-                          : 'Enable to receive notifications on your device'}
-                      </CardDescription>
-                    </div>
-                    {notificationsEnabled ? (
-                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                        Enabled
-                      </span>
-                    ) : (
-                      <Button 
-                        onClick={async () => {
-                          const success = await enableNotifications();
-                          if (success) {
-                            toast.success('Push notifications enabled!');
-                          } else {
-                            toast.error('Could not enable notifications. Please check your browser settings.');
-                          }
-                        }}
-                        size="sm"
-                        className="bg-amber-600 hover:bg-amber-700"
-                      >
-                        Enable
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-              </Card>
-
               <Card>
                 <CardHeader>
                   <CardTitle>{t.notificationsTab}</CardTitle>
@@ -443,16 +403,6 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                       <Label>Friend requests</Label>
                       <p className="text-sm text-muted-foreground">
                         Get notified when someone sends you a friend request
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Messages</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when you receive a new message
                       </p>
                     </div>
                     <Switch defaultChecked />
