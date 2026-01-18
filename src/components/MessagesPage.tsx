@@ -457,7 +457,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                         <button
                           key={conv.id}
                           onClick={() => setSelectedConversation(conv)}
-                          className="w-full p-3 mb-1 rounded-xl hover:bg-white transition-colors flex items-center gap-3 text-left"
+                          className="w-full p-4 mb-2 rounded-2xl bg-white border-2 border-amber-200 shadow-md hover:shadow-lg hover:border-amber-300 transition-all flex items-center gap-3 text-left"
                         >
                           <div className="relative flex-shrink-0">
                             <Avatar className="w-12 h-12 border-2 border-white shadow-sm">
