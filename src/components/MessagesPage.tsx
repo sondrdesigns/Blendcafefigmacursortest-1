@@ -475,8 +475,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <span className={`font-medium truncate ${unread > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                                {conv.participant.username}
+                              <span className={`font-semibold truncate text-base ${unread > 0 ? 'text-gray-900' : 'text-gray-800'}`}>
+                                {conv.participant.username || conv.participant.id || 'Unknown'}
                               </span>
                               {lastMsg && (
                                 <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
@@ -570,8 +570,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`font-medium truncate ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
-                            {conv.participant.username}
+                          <span className={`font-semibold truncate text-base ${unread > 0 ? 'text-white' : 'text-amber-100'}`}>
+                            {conv.participant.username || conv.participant.id || 'Unknown'}
                           </span>
                           {unread > 0 && (
                             <span className="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse" />
