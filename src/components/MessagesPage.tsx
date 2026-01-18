@@ -30,7 +30,7 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
-  const [recentlySentIds, setRecentlySentIds] = useState<Set<string>>(new Set());
+  const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mobileMessagesContainerRef = useRef<HTMLDivElement>(null);
@@ -174,15 +174,8 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
         read: false,
       });
       
-      // Track recently sent for animation - keep longer for smooth animation
-      setRecentlySentIds(prev => new Set(prev).add(docRef.id));
-      setTimeout(() => {
-        setRecentlySentIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(docRef.id);
-          return newSet;
-        });
-      }, 500);
+      // Track pending message for animation
+      setPendingMessageId(docRef.id);
       
       // Scroll to bottom after message is sent
       scrollToBottom(true);
@@ -254,8 +247,10 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
   const MessageBubble = ({ msg, idx, isMobile = false }: { msg: Message; idx: number; isMobile?: boolean }) => {
     const isOwn = msg.senderId === MY_USER_ID;
     const showDate = shouldShowDateSeparator(idx);
-    const isNew = recentlySentIds.has(msg.id);
     const isSelected = selectedMessages.has(msg.id);
+    
+    // Animate if this is the pending message we just sent
+    const shouldAnimate = msg.id === pendingMessageId;
 
     return (
       <React.Fragment>
@@ -267,13 +262,18 @@ export function MessagesPage({ onNavigate, initialConversationId }: MessagesPage
           </div>
         )}
         <motion.div 
-          initial={isNew ? { opacity: 0, scale: 0.95, y: 10, x: isOwn ? 15 : -15 } : false}
+          initial={shouldAnimate ? { opacity: 0, scale: 0.85, y: 20, x: isOwn ? 30 : -30 } : false}
           animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+          onAnimationComplete={() => {
+            if (shouldAnimate) {
+              setPendingMessageId(null);
+            }
+          }}
           transition={{ 
-            duration: 0.35,
-            ease: [0.25, 0.46, 0.45, 0.94], // Custom cubic-bezier for smooth deceleration
-            opacity: { duration: 0.2 },
-            scale: { duration: 0.3, ease: [0.34, 1.56, 0.64, 1] } // Gentle bounce
+            duration: 0.4,
+            ease: [0.22, 1, 0.36, 1], // Smooth ease-out
+            opacity: { duration: 0.25, delay: 0.05 },
+            scale: { duration: 0.35, ease: [0.34, 1.3, 0.64, 1] }
           }}
           className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${isSelectMode && !isMobile ? 'cursor-pointer' : ''}`}
           onClick={() => !isMobile && isSelectMode && (
