@@ -29,22 +29,74 @@ interface ExplorePageProps {
 }
 
 export function ExplorePage({ onNavigate }: ExplorePageProps) {
-  const { language, setSelectedCafe } = useApp();
+  const { language, setSelectedCafe, exploreSearchQuery, setExploreSearchQuery } = useApp();
   const t = translations[language];
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [quickFilter, setQuickFilter] = useState<string>('all');
   const [cafes, setCafes] = useState<Cafe[]>([]);
+  const [allCafes, setAllCafes] = useState<Cafe[]>([]); // Store all cafes before name filtering
   const [displayCount, setDisplayCount] = useState(6); // Number of cafes to display
   const [isAiEnhancing, setIsAiEnhancing] = useState(false);
   const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
+  const [currentLocationName, setCurrentLocationName] = useState('your area');
+  const [isSearching, setIsSearching] = useState(false);
 
+  // Handle search query passed from home page
   useEffect(() => {
-    loadCafes();
+    if (exploreSearchQuery) {
+      setSearchQuery(exploreSearchQuery);
+      setExploreSearchQuery(''); // Clear it
+      // Search will be triggered by the searchQuery change below
+    }
+  }, [exploreSearchQuery, setExploreSearchQuery]);
+
+  // Initial load or when search query changes to a location
+  useEffect(() => {
+    // On initial mount, load cafes from user location
+    if (!searchQuery) {
+      loadCafesAtUserLocation();
+    }
   }, []);
 
-  const loadCafes = async () => {
+  // Search when user presses enter or clicks search
+  const handleLocationSearch = async () => {
+    if (!searchQuery.trim()) {
+      loadCafesAtUserLocation();
+      return;
+    }
+    
+    setIsSearching(true);
+    setLoading(true);
+    toast.loading('Searching location...', { id: 'location-search' });
+    
+    try {
+      // Try to geocode the search query as a location
+      const geocodeResult = await GoogleMapsService.geocodeLocation(searchQuery);
+      
+      if (geocodeResult) {
+        const { lat, lng, formattedAddress } = geocodeResult;
+        console.log(`📍 Found location: ${formattedAddress}`);
+        setCurrentLocationName(formattedAddress);
+        toast.success(`Searching cafes in ${formattedAddress}`, { id: 'location-search' });
+        
+        // Load cafes at this location
+        await loadCafesAtLocation({ lat, lng });
+      } else {
+        toast.error('Location not found. Try a different search.', { id: 'location-search' });
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search failed. Please try again.', { id: 'location-search' });
+      setLoading(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const loadCafesAtUserLocation = async () => {
     setLoading(true);
     setIsAiEnhancing(true);
     
@@ -52,8 +104,22 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
       console.log('🔍 Getting user location...');
       const location = await GoogleMapsService.getUserLocation();
       console.log('📍 Location:', location);
+      setCurrentLocationName('your area');
       
-      console.log('☕ Searching for nearby cafes...');
+      await loadCafesAtLocation(location);
+    } catch (error: any) {
+      console.error('❌ Error getting location:', error);
+      toast.error('Could not get your location.');
+      setLoading(false);
+      setIsAiEnhancing(false);
+    }
+  };
+
+  const loadCafesAtLocation = async (location: { lat: number; lng: number }) => {
+    setIsAiEnhancing(true);
+    
+    try {
+      console.log('☕ Searching for cafes near:', location);
       
       let enhancementComplete = false;
       let enhancedCount = 0;
@@ -64,8 +130,8 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
         5000, // 5km radius
         (updatedCafes) => {
           // Update state as AI processes each batch
-          // This triggers filteredCafes to recalculate with new categories
           setCafes([...updatedCafes]);
+          setAllCafes([...updatedCafes]);
           
           if (!enhancementComplete) {
             enhancedCount += 5; // Assume 5 per batch
@@ -73,30 +139,30 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
               current: Math.min(enhancedCount, updatedCafes.length), 
               total: updatedCafes.length 
             });
-            console.log(`🔄 AI enhanced ${enhancedCount}/${updatedCafes.length} cafés - filters updating...`);
+            console.log(`🔄 AI enhanced ${enhancedCount}/${updatedCafes.length} cafés`);
           }
         }
       );
       
       console.log(`✅ Found ${nearbyCafes.length} cafes`);
       setCafes(nearbyCafes);
+      setAllCafes(nearbyCafes);
       setAiProgress({ current: 0, total: nearbyCafes.length });
-      setLoading(false); // Stop loading immediately, AI continues in background
+      setLoading(false);
       
       if (nearbyCafes.length > 0) {
-        toast.success(`Found ${nearbyCafes.length} cafes nearby! AI enhancing categories...`);
+        toast.success(`Found ${nearbyCafes.length} cafes!`);
       } else {
-        toast.warning('No cafes found nearby. Try a different location.');
+        toast.warning('No cafes found in this area. Try a different location.');
       }
       
-      // Wait a bit then mark enhancement as complete
+      // Mark enhancement as complete after delay
       setTimeout(() => {
         enhancementComplete = true;
         setIsAiEnhancing(false);
         setAiProgress({ current: nearbyCafes.length, total: nearbyCafes.length });
-        console.log('✅ AI enhancement complete - all categories updated');
-        toast.success('🎉 AI analysis complete! Filters are now fully accurate.');
-      }, 30000); // 30 seconds max for enhancement
+        console.log('✅ AI enhancement complete');
+      }, 30000);
       
     } catch (error: any) {
       console.error('❌ Error loading cafes:', error);
@@ -111,6 +177,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
       
       toast.error(errorMessage);
       setCafes([]);
+      setAllCafes([]);
       setLoading(false);
       setIsAiEnhancing(false);
     }
@@ -119,7 +186,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
   // Reset display count when filters change
   useEffect(() => {
     setDisplayCount(6);
-  }, [searchQuery, selectedCategories, quickFilter]);
+  }, [selectedCategories, quickFilter]);
 
   const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -129,12 +196,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
     }
   };
 
-  const filteredCafes = cafes.filter(cafe => {
-    // Search filter
-    if (searchQuery && !cafe.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-
+  const filteredCafes = allCafes.filter(cafe => {
     // Category filter
     if (selectedCategories.length > 0) {
       const hasCategory = selectedCategories.some(cat =>
@@ -191,17 +253,46 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Enter city or address..."
+                placeholder="Enter city, state, or address..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" className="gap-2">
+            <Button 
+              onClick={handleLocationSearch}
+              disabled={isSearching}
+              className="gap-2"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              <Search className="w-4 h-4" />
+              {isSearching ? 'Searching...' : 'Search'}
+            </Button>
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => {
+                setSearchQuery('');
+                loadCafesAtUserLocation();
+              }}
+            >
               <MapPin className="w-4 h-4" />
-              Use Current Location
+              My Location
             </Button>
           </motion.div>
+
+          {/* Current location indicator */}
+          {!loading && allCafes.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-4 text-sm text-muted-foreground flex items-center gap-2"
+            >
+              <MapPin className="w-4 h-4" />
+              Showing cafes in <span className="font-medium text-foreground">{currentLocationName}</span>
+            </motion.div>
+          )}
 
           {/* Categories */}
           <motion.div
