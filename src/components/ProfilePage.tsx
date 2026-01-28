@@ -124,54 +124,62 @@ export function ProfilePage({ onNavigate, onOpenMessages, userId }: ProfilePageP
     return friends.filter(f => f.status === 'friends').slice(0, profileData.mutualFriends > 3 ? 3 : profileData.mutualFriends);
   };
 
+  // Get actual user stats for achievements
+  const friendCount = friends.filter(f => f.status === 'friends').length;
+  const reviewCount = user?.reviewCount || 0;
+  const visitedCount = user?.visitedCount || 0;
+  const favoritesCount = favorites.length;
+  const helpfulVotes = user?.helpfulVotes || 0;
+  const earlyBirdVisits = user?.earlyBirdVisits || 0;
+  
   const achievements = [
     {
       icon: Coffee,
       title: 'Coffee Explorer',
       description: 'Visit 10 different cafés',
-      progress: 6,
+      progress: visitedCount,
       total: 10,
-      unlocked: false,
+      unlocked: visitedCount >= 10,
     },
     {
       icon: Star,
       title: 'Review Master',
       description: 'Write 25 reviews',
-      progress: 42,
+      progress: reviewCount,
       total: 25,
-      unlocked: true,
+      unlocked: reviewCount >= 25,
     },
     {
       icon: Heart,
       title: 'Social Butterfly',
       description: 'Add 50 friends',
-      progress: 128,
+      progress: friendCount,
       total: 50,
-      unlocked: true,
+      unlocked: friendCount >= 50,
     },
     {
       icon: MapPin,
       title: 'Local Expert',
-      description: 'Discover all cafés in your area',
-      progress: 15,
+      description: 'Save 20 favorite cafés',
+      progress: favoritesCount,
       total: 20,
-      unlocked: false,
+      unlocked: favoritesCount >= 20,
     },
     {
       icon: Trophy,
       title: 'Top Reviewer',
       description: 'Get 100 helpful votes',
-      progress: 67,
+      progress: helpfulVotes,
       total: 100,
-      unlocked: false,
+      unlocked: helpfulVotes >= 100,
     },
     {
       icon: Coffee,
       title: 'Early Bird',
       description: 'Visit 5 cafés before 8am',
-      progress: 3,
+      progress: earlyBirdVisits,
       total: 5,
-      unlocked: false,
+      unlocked: earlyBirdVisits >= 5,
     },
   ];
 

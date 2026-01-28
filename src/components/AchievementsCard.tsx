@@ -1,45 +1,53 @@
 import React, { useState } from 'react';
 import { Trophy, Star, Coffee, Users, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useApp } from '../lib/AppContext';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 
 export function AchievementsCard() {
   const [isExpanded, setIsExpanded] = useState(true);
+  const { user, friends, favorites } = useApp();
+  
+  // Get actual user stats
+  const friendCount = friends.filter(f => f.status === 'friends').length;
+  const reviewCount = user?.reviewCount || 0;
+  const visitedCount = user?.visitedCount || 0;
+  const favoritesCount = favorites.length;
   
   const achievements = [
     {
       icon: Coffee,
       title: 'Coffee Explorer',
       description: 'Visit 10 different cafés',
-      progress: 6,
+      progress: visitedCount,
       total: 10,
-      unlocked: false,
+      unlocked: visitedCount >= 10,
     },
     {
       icon: Star,
       title: 'Review Master',
       description: 'Write 25 reviews',
-      progress: 42,
+      progress: reviewCount,
       total: 25,
-      unlocked: true,
+      unlocked: reviewCount >= 25,
     },
     {
       icon: Users,
       title: 'Social Butterfly',
       description: 'Add 50 friends',
-      progress: 128,
+      progress: friendCount,
       total: 50,
-      unlocked: true,
+      unlocked: friendCount >= 50,
     },
     {
       icon: MapPin,
       title: 'Local Expert',
-      description: 'Discover all cafés in your area',
-      progress: 15,
+      description: 'Save 20 favorite cafés',
+      progress: favoritesCount,
       total: 20,
-      unlocked: false,
+      unlocked: favoritesCount >= 20,
     },
   ];
 

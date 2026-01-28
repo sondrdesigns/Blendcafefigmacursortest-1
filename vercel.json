@@ -61,7 +61,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!api|assets|favicon.ico|robots.txt|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.webp).*)",
+      "source": "/((?!api|assets|favicon.ico|robots.txt|sitemap.xml|manifest.json|og-image.png|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.webp).*)",
       "destination": "/index.html"
     }
   ]

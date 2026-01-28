@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, MapPin, SlidersHorizontal, Trophy, Navigation as NavigationIcon } from 'lucide-react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, MapPin, SlidersHorizontal, Trophy, Navigation as NavigationIcon, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../lib/AppContext';
 import { translations, categories } from '../lib/mockData';
 import { Cafe } from '../lib/types';
@@ -24,6 +24,15 @@ import { GoogleMapsService } from '../services/googleMapsService';
 import { CafeService } from '../services/cafeService';
 import { toast } from 'sonner';
 
+interface PlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
+}
+
 interface ExplorePageProps {
   onNavigate: (page: string) => void;
 }
@@ -42,38 +51,121 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
   const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
   const [currentLocationName, setCurrentLocationName] = useState('your area');
   const [isSearching, setIsSearching] = useState(false);
+  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  const [showPredictions, setShowPredictions] = useState(false);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const predictionsRef = useRef<HTMLDivElement>(null);
+
+  // Initialize autocomplete service
+  useEffect(() => {
+    const initAutocomplete = async () => {
+      try {
+        await GoogleMapsService.initialize();
+        if (window.google && window.google.maps) {
+          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+        }
+      } catch (error) {
+        console.error('Failed to initialize autocomplete:', error);
+      }
+    };
+    initAutocomplete();
+  }, []);
 
   // Handle search query passed from home page
   useEffect(() => {
     if (exploreSearchQuery) {
       setSearchQuery(exploreSearchQuery);
       setExploreSearchQuery(''); // Clear it
-      // Search will be triggered by the searchQuery change below
+      // Trigger search after a short delay
+      setTimeout(() => handleLocationSearch(exploreSearchQuery), 100);
     }
   }, [exploreSearchQuery, setExploreSearchQuery]);
 
-  // Initial load or when search query changes to a location
+  // Initial load
   useEffect(() => {
-    // On initial mount, load cafes from user location
-    if (!searchQuery) {
+    if (!exploreSearchQuery) {
       loadCafesAtUserLocation();
     }
   }, []);
 
+  // Fetch predictions as user types
+  useEffect(() => {
+    if (!searchQuery.trim() || !autocompleteServiceRef.current) {
+      setPredictions([]);
+      setShowPredictions(false);
+      return;
+    }
+
+    const fetchPredictions = async () => {
+      try {
+        autocompleteServiceRef.current!.getPlacePredictions(
+          {
+            input: searchQuery,
+            types: ['(regions)'], // Cities, states, countries, neighborhoods
+          },
+          (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              setPredictions(results.slice(0, 5) as PlacePrediction[]);
+              setShowPredictions(true);
+            } else {
+              setPredictions([]);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Autocomplete error:', error);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchPredictions, 200);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+  // Close predictions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        predictionsRef.current &&
+        !predictionsRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setShowPredictions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Select a prediction from autocomplete
+  const selectPrediction = async (prediction: PlacePrediction) => {
+    setSearchQuery(prediction.description);
+    setShowPredictions(false);
+    setPredictions([]);
+    
+    // Search using the selected location
+    await handleLocationSearch(prediction.description);
+  };
+
   // Search when user presses enter or clicks search
-  const handleLocationSearch = async () => {
-    if (!searchQuery.trim()) {
+  const handleLocationSearch = async (queryOverride?: string) => {
+    const query = queryOverride || searchQuery;
+    
+    if (!query.trim()) {
       loadCafesAtUserLocation();
       return;
     }
     
+    setShowPredictions(false);
     setIsSearching(true);
     setLoading(true);
     toast.loading('Searching location...', { id: 'location-search' });
     
     try {
       // Try to geocode the search query as a location
-      const geocodeResult = await GoogleMapsService.geocodeLocation(searchQuery);
+      const geocodeResult = await GoogleMapsService.geocodeLocation(query);
       
       if (geocodeResult) {
         const { lat, lng, formattedAddress } = geocodeResult;
@@ -84,7 +176,7 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
         // Load cafes at this location
         await loadCafesAtLocation({ lat, lng });
       } else {
-        toast.error('Location not found. Try a different search.', { id: 'location-search' });
+        toast.error('Location not found. Try selecting from suggestions.', { id: 'location-search' });
         setLoading(false);
       }
     } catch (error) {
@@ -250,18 +342,63 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
             className="flex flex-col md:flex-row gap-3 mb-6"
           >
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
               <Input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Enter city, state, or address..."
+                placeholder="Search any location: city, state, country..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
-                className="pl-10"
+                onFocus={() => predictions.length > 0 && setShowPredictions(true)}
+                className="pl-10 pr-10"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setPredictions([]);
+                    setShowPredictions(false);
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Autocomplete Predictions Dropdown */}
+              <AnimatePresence>
+                {showPredictions && predictions.length > 0 && (
+                  <motion.div
+                    ref={predictionsRef}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden"
+                  >
+                    {predictions.map((prediction, index) => (
+                      <button
+                        key={prediction.place_id}
+                        onClick={() => selectPrediction(prediction)}
+                        className="w-full px-4 py-3 text-left hover:bg-amber-50 transition-colors flex items-start gap-3 border-b border-gray-100 last:border-b-0"
+                      >
+                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {prediction.structured_formatting.main_text}
+                          </div>
+                          <div className="text-sm text-gray-500 truncate">
+                            {prediction.structured_formatting.secondary_text}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <Button 
-              onClick={handleLocationSearch}
+              onClick={() => handleLocationSearch()}
               disabled={isSearching}
               className="gap-2"
               style={{ backgroundColor: 'var(--brand-primary)' }}
@@ -274,6 +411,8 @@ export function ExplorePage({ onNavigate }: ExplorePageProps) {
               className="gap-2"
               onClick={() => {
                 setSearchQuery('');
+                setPredictions([]);
+                setShowPredictions(false);
                 loadCafesAtUserLocation();
               }}
             >

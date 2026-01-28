@@ -16,6 +16,10 @@ export interface User {
   friendCount: number;
   bio?: string;
   location?: string;
+  // Achievement tracking
+  visitedCount?: number;
+  helpfulVotes?: number;
+  earlyBirdVisits?: number;
 }
 
 export interface Cafe {

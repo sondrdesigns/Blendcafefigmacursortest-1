@@ -1,0 +1,30 @@
+{
+  "name": "Blend Cafe - Café Discovery",
+  "short_name": "Blend Cafe",
+  "description": "Discover cafés by what matters most - studying, dates, vibes, or just great coffee. AI-powered café recommendations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF7ED",
+  "theme_color": "#b8834a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle", "social"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}
+

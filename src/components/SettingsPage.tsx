@@ -15,36 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { LocationAutocomplete } from './LocationAutocomplete';
 import { toast } from 'sonner';
-
-// Popular locations for the dropdown
-const LOCATIONS = [
-  { value: 'new-york', label: 'New York City, NY' },
-  { value: 'los-angeles', label: 'Los Angeles, CA' },
-  { value: 'san-francisco', label: 'San Francisco, CA' },
-  { value: 'chicago', label: 'Chicago, IL' },
-  { value: 'seattle', label: 'Seattle, WA' },
-  { value: 'austin', label: 'Austin, TX' },
-  { value: 'portland', label: 'Portland, OR' },
-  { value: 'boston', label: 'Boston, MA' },
-  { value: 'denver', label: 'Denver, CO' },
-  { value: 'miami', label: 'Miami, FL' },
-  { value: 'atlanta', label: 'Atlanta, GA' },
-  { value: 'nashville', label: 'Nashville, TN' },
-  { value: 'philadelphia', label: 'Philadelphia, PA' },
-  { value: 'san-diego', label: 'San Diego, CA' },
-  { value: 'washington-dc', label: 'Washington, D.C.' },
-  { value: 'tokyo', label: 'Tokyo, Japan' },
-  { value: 'london', label: 'London, UK' },
-  { value: 'paris', label: 'Paris, France' },
-  { value: 'sydney', label: 'Sydney, Australia' },
-  { value: 'toronto', label: 'Toronto, Canada' },
-  { value: 'vancouver', label: 'Vancouver, Canada' },
-  { value: 'seoul', label: 'Seoul, South Korea' },
-  { value: 'singapore', label: 'Singapore' },
-  { value: 'melbourne', label: 'Melbourne, Australia' },
-  { value: 'berlin', label: 'Berlin, Germany' },
-];
 
 interface SettingsPageProps {
   onNavigate: (page: string) => void;
@@ -275,21 +247,11 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                       <MapPin className="w-4 h-4 inline mr-2" />
                       {t.locationLabel}
                     </Label>
-                    <Select value={location} onValueChange={setLocation}>
-                      <SelectTrigger id="location" className="w-full">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <SelectValue placeholder={t.locationPlaceholder || "Select your city"} />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {LOCATIONS.map((loc) => (
-                          <SelectItem key={loc.value} value={loc.label}>
-                            {loc.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <LocationAutocomplete
+                      value={location}
+                      onChange={setLocation}
+                      placeholder={t.locationPlaceholder || "Search your city, state, or country..."}
+                    />
                   </div>
 
                   <div className="space-y-2">
