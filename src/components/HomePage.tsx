@@ -11,7 +11,7 @@ interface HomePageProps {
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
-  const { language } = useApp();
+  const { language, setExploreSearchQuery } = useApp();
   const t = translations[language];
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -25,6 +25,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
   };
 
   const handleExplore = () => {
+    // Pass the search query to the explore page
+    setExploreSearchQuery(searchQuery.trim());
     onNavigate('explore');
   };
 
@@ -213,6 +215,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 placeholder={t.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleExplore()}
                 className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
               />
               <Button

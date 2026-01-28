@@ -521,6 +521,36 @@ export class GoogleMapsService {
   }
 
   /**
+   * Geocode a location string (address, city, state) to coordinates
+   */
+  static async geocodeLocation(query: string): Promise<{ lat: number; lng: number; formattedAddress: string } | null> {
+    try {
+      const maps = await this.initialize();
+      const geocoder = new maps.Geocoder();
+
+      return new Promise((resolve) => {
+        geocoder.geocode({ address: query }, (results, status) => {
+          if (status === 'OK' && results && results.length > 0) {
+            const location = results[0].geometry.location;
+            console.log(`📍 Geocoded "${query}" to:`, location.lat(), location.lng());
+            resolve({
+              lat: location.lat(),
+              lng: location.lng(),
+              formattedAddress: results[0].formatted_address
+            });
+          } else {
+            console.warn(`⚠️ Geocoding failed for "${query}":`, status);
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      console.error('❌ Geocoding error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get user's current location
    */
   static async getUserLocation(): Promise<{ lat: number; lng: number }> {

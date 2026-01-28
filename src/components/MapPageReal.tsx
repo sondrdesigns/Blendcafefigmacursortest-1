@@ -36,7 +36,7 @@ interface MapPageRealProps {
 }
 
 export function MapPageReal({ onNavigate }: MapPageRealProps) {
-  const { language, setSelectedCafe } = useApp();
+  const { language, setSelectedCafe, exploreSearchQuery, setExploreSearchQuery } = useApp();
   const t = translations[language];
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -88,6 +88,32 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
   useEffect(() => {
     initializeMap();
   }, []);
+
+  // Handle search query passed from home page
+  const pendingSearchRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    // If there's a search query from home page, store it to execute after map loads
+    if (exploreSearchQuery) {
+      pendingSearchRef.current = exploreSearchQuery;
+      setSearchQuery(exploreSearchQuery);
+      // Clear the global search query so it doesn't persist on re-navigation
+      setExploreSearchQuery('');
+    }
+  }, [exploreSearchQuery, setExploreSearchQuery]);
+
+  // Execute pending search after map and cafes are loaded
+  useEffect(() => {
+    if (!loading && pendingSearchRef.current && mapInstanceRef.current) {
+      const queryToSearch = pendingSearchRef.current;
+      pendingSearchRef.current = null;
+      
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        handleSearchFromHome(queryToSearch);
+      }, 500);
+    }
+  }, [loading]);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -396,15 +422,88 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
     updateMarkers(filtered);
   };
 
-  const handleSearch = () => {
-    if (!userLocation) return;
-    
-    const filtered = cafes.filter(cafe =>
-      cafe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cafe.location.address.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    await executeSearch(searchQuery);
+  };
+
+  // Handle search from home page (with query passed directly)
+  const handleSearchFromHome = async (query: string) => {
+    if (!query.trim()) return;
+    await executeSearch(query);
+  };
+
+  // Core search logic used by both handleSearch and handleSearchFromHome
+  const executeSearch = async (query: string) => {
+    // First, check if it matches any existing cafe names
+    const matchingCafes = allCafes.filter(cafe =>
+      cafe.name.toLowerCase().includes(query.toLowerCase())
     );
     
-    updateMarkers(filtered);
+    if (matchingCafes.length > 0) {
+      // If we found matching cafes by name, just filter and show them
+      setCafes(matchingCafes);
+      updateMarkers(matchingCafes);
+      
+      // Pan to the first matching cafe
+      if (matchingCafes.length === 1 && mapInstanceRef.current) {
+        mapInstanceRef.current.panTo({ 
+          lat: matchingCafes[0].location.lat, 
+          lng: matchingCafes[0].location.lng 
+        });
+        mapInstanceRef.current.setZoom(16);
+        setSelectedMapCafe(matchingCafes[0]);
+      }
+      return;
+    }
+    
+    // Otherwise, try to geocode as a location search
+    toast.loading('Searching location...', { id: 'search-location' });
+    
+    try {
+      const geocodeResult = await GoogleMapsService.geocodeLocation(query);
+      
+      if (geocodeResult) {
+        const { lat, lng, formattedAddress } = geocodeResult;
+        
+        console.log(`📍 Moving to: ${formattedAddress}`);
+        toast.success(`Found: ${formattedAddress}`, { id: 'search-location' });
+        
+        // Update user location state (this represents the search center now)
+        setUserLocation({ lat, lng });
+        
+        // Move the map to the new location
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo({ lat, lng });
+          const zoomLevel = radiusMiles[0] <= 1 ? 15 : radiusMiles[0] <= 3 ? 14 : radiusMiles[0] <= 5 ? 13 : 12;
+          mapInstanceRef.current.setZoom(zoomLevel);
+        }
+        
+        // Update radius circle to new location
+        if (radiusCircleRef.current) {
+          radiusCircleRef.current.setCenter({ lat, lng });
+        }
+        
+        // Update user marker to new location
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setPosition({ lat, lng });
+          userMarkerRef.current.setTitle('Search Location');
+        }
+        
+        // Clear selected cafe
+        setSelectedMapCafe(null);
+        
+        // Load cafes at the new location
+        loadingRef.current = false; // Reset loading ref to allow new search
+        await loadCafes({ lat, lng }, radiusMiles[0]);
+        
+      } else {
+        toast.error('Location not found. Try a different search.', { id: 'search-location' });
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search failed. Please try again.', { id: 'search-location' });
+    }
   };
 
   const toggleCategory = (category: string) => {
@@ -494,7 +593,7 @@ export function MapPageReal({ onNavigate }: MapPageRealProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search cafes or location..."
+                placeholder="Search city, address, or cafe..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}

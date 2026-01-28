@@ -32,6 +32,8 @@ interface AppContextType {
   sendFriendRequest: (userId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<Friend[]>;
   loading: boolean;
+  exploreSearchQuery: string;
+  setExploreSearchQuery: (query: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -47,6 +49,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [exploreSearchQuery, setExploreSearchQuery] = useState('');
   
   const friendRequestCount = friends.filter(f => f.status === 'request').length;
 
@@ -452,6 +455,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sendFriendRequest,
         searchUsers,
         loading,
+        exploreSearchQuery,
+        setExploreSearchQuery,
       }}
     >
       {children}
